@@ -1,0 +1,18 @@
+# Local configuration and credentials
+/src/config.php
+/.env
+/.env.*
+!.env.example
+*.pem
+*.key
+
+# Editors and operating-system files
+/.vscode/
+/.idea/
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak

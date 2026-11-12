@@ -1,0 +1,10 @@
+RewriteEngine On
+
+# Не переписываем повторно файлы, уже направленные в public/.
+RewriteRule ^public/ - [L]
+
+# Если запрос пустой — ведём на public/index.php
+RewriteRule ^$ public/index.php [L]
+
+# Все остальные запросы уводим в public/
+RewriteRule ^(.*)$ public/$1 [L]
