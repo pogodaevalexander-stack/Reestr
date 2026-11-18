@@ -50,7 +50,7 @@ final class OutageRepository
         if ($conds) {
             $sql .= ' WHERE ' . implode(' AND ', $conds);
         }
-        $sql .= ' ORDER BY o.is_active DESC, o.start_at DESC';
+        $sql .= ' ORDER BY o.is_active DESC, o.actual_start DESC';
 
         $st = $this->db->prepare($sql);
         $st->execute($args);
@@ -61,23 +61,35 @@ final class OutageRepository
     public function active(): array
     {
         $st = $this->db->query(
-            'SELECT o.id, o.type, o.reason, o.start_at, o.planned_end, h.address, h.lat, h.lng
+            'SELECT o.id, o.type, o.reason, o.planned_start, o.actual_start, o.planned_end, h.address, h.lat, h.lng
              FROM outages o JOIN houses h ON h.id = o.house_id
              WHERE o.is_active = 1'
         );
         return $st->fetchAll();
     }
 
-    public function create(int $houseId, string $type, ?string $reason, ?string $plannedEnd, string $startAt): int
+    public function find(int $id): ?array
     {
         $st = $this->db->prepare(
-            'INSERT INTO outages (house_id, type, reason, planned_end, start_at) VALUES (?, ?, ?, ?, ?)'
+            'SELECT o.*, h.address, h.lat, h.lng
+             FROM outages o JOIN houses h ON h.id = o.house_id
+             WHERE o.id = ? LIMIT 1'
         );
-        $st->execute([$houseId, $type, $reason, $plannedEnd, $startAt]);
+        $st->execute([$id]);
+        $row = $st->fetch();
+        return $row === false ? null : $row;
+    }
+
+    public function create(int $houseId, string $type, ?string $plannedStart, string $actualStart, ?string $reason, ?string $plannedEnd): int
+    {
+        $st = $this->db->prepare(
+            'INSERT INTO outages (house_id, type, planned_start, actual_start, reason, planned_end) VALUES (?, ?, ?, ?, ?, ?)'
+        );
+        $st->execute([$houseId, $type, $plannedStart, $actualStart, $reason, $plannedEnd]);
         return (int)$this->db->lastInsertId();
     }
 
-    /** Частичное обновление: type / reason / planned_end / is_active. */
+    /** Частичное обновление: type / reason / planned_start / actual_start / planned_end / is_active. */
     public function update(array $in): void
     {
         $id  = (int)($in['id'] ?? 0);
@@ -85,7 +97,10 @@ final class OutageRepository
         $args = [];
 
         if (isset($in['type']) && in_array($in['type'], self::TYPES, true)) { $set[] = 'type = ?';        $args[] = $in['type']; }
+        if (isset($in['house_id']) && (int)$in['house_id'] > 0) { $set[] = 'house_id = ?'; $args[] = (int)$in['house_id']; }
         if (array_key_exists('reason', $in))        { $set[] = 'reason = ?';      $args[] = $in['reason'] !== '' ? $in['reason'] : null; }
+        if (array_key_exists('planned_start', $in)) { $set[] = 'planned_start = ?'; $args[] = $in['planned_start'] !== '' ? $in['planned_start'] : null; }
+        if (array_key_exists('actual_start', $in))  { $set[] = 'actual_start = ?'; $args[] = $in['actual_start']; }
         if (array_key_exists('planned_end', $in))   { $set[] = 'planned_end = ?'; $args[] = $in['planned_end'] !== '' ? $in['planned_end'] : null; }
         if (array_key_exists('is_active', $in))     { $set[] = 'is_active = ?';   $args[] = (int)(bool)$in['is_active']; }
 

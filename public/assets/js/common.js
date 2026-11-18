@@ -201,4 +201,33 @@ document.addEventListener('DOMContentLoaded', () => {
   startClock();
   loadBadges();
   $$('.sg-input').forEach((el) => new AddressSuggest(el));
+  $$('.excel-export').forEach((link) => link.addEventListener('click', saveExcelFile));
 });
+
+async function saveExcelFile(event) {
+  if (typeof window.showSaveFilePicker !== 'function') return;
+  event.preventDefault();
+  const link = event.currentTarget;
+
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: link.dataset.filename || 'export.xlsx',
+      types: [{
+        description: 'Книга Excel',
+        accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] },
+      }],
+    });
+    const response = await fetch(link.href, { credentials: 'same-origin' });
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok || !contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+      throw new Error('Не удалось подготовить файл для экспорта. Возможно, потребуется войти в систему заново.');
+    }
+
+    const file = await handle.createWritable();
+    await file.write(await response.blob());
+    await file.close();
+    toast('Файл Excel сохранён.', 'ok');
+  } catch (error) {
+    if (error.name !== 'AbortError') toast(error.message || 'Ошибка сохранения файла.', 'err');
+  }
+}

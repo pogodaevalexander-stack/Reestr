@@ -1,8 +1,6 @@
 <?php
 /** Copy to config.php and fill in local database/API settings. */
 return [
-    'base_url' => '/Reestr',
-
     'db' => [
         'host'    => '127.0.0.1',
         'port'    => 3306,

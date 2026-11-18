@@ -9,6 +9,19 @@ document.addEventListener('DOMContentLoaded', () => {
   loadHousesTable();
   bindToolbar();
   bindOutageTable();
+  $('#ot-table tbody').addEventListener('click', (event) => {
+    const row = event.target.closest('tr[data-edit-url]');
+    if (row && !event.target.closest('button, a, input, select')) {
+      location.href = row.dataset.editUrl;
+    }
+  });
+  $('#ot-table tbody').addEventListener('keydown', (event) => {
+    const row = event.target.closest('tr[data-edit-url]');
+    if (row && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      location.href = row.dataset.editUrl;
+    }
+  });
   $('#hs-q').addEventListener('input', debounce(loadHousesTable, 300));
 });
 
@@ -75,17 +88,17 @@ function renderOutages(rows) {
     return;
   }
   tbody.innerHTML = rows.map((outage) => `
-    <tr class="${outage.is_active ? '' : 'row-off'}">
+    <tr class="${outage.is_active ? '' : 'row-off'} outage-row" data-edit-url="${esc((window.APP?.base || '') + '/outage_form.php?id=' + outage.id)}" tabindex="0">
       <td><span class="idchip mono">#${outage.id}</span></td>
       <td class="td-addr">${hl(outage.address, state.q)}</td>
       <td><span class="pill ${outage.type === 'heating' ? 'heat' : 'hot'}">${TYPE[outage.type] || esc(outage.type)}</span></td>
       <td>${outage.reason ? hl(outage.reason, state.q) : '—'}</td>
-      <td class="mono sm">${fmtDT(outage.start_at)}</td>
+      <td class="mono sm">${outage.planned_start ? fmtDT(outage.planned_start) : '—'}</td>
+      <td class="mono sm">${fmtDT(outage.actual_start)}</td>
       <td class="mono sm">${outage.planned_end ? fmtDT(outage.planned_end) : '—'}</td>
       <td>${outage.is_active ? 'Активно' : 'Восстановлено'}</td>
       <td class="td-act">
         <button class="btn ghost sm act-toggle" data-id="${outage.id}">${outage.is_active ? 'Восстановить' : 'Снова отключить'}</button>
-        <button class="btn danger sm act-del" data-id="${outage.id}">Удалить</button>
       </td>
     </tr>`).join('');
 }
@@ -105,16 +118,6 @@ function bindOutageTable() {
         loadHousesTable();
         loadBadges();
       }).catch((error) => toast(error.message, 'err'));
-    }
-    if (button.classList.contains('act-del')) {
-      if (!confirmSwap(button, { label2: 'Точно удалить?' })) return;
-      api({ action: 'outages', op: 'delete' }, { method: 'POST', body: { id } })
-        .then(() => {
-          toast(`Отключение #${id} удалено.`, 'ok');
-          reloadOutages();
-          loadHousesTable();
-          loadBadges();
-        }).catch((error) => toast(error.message, 'err'));
     }
   });
 }

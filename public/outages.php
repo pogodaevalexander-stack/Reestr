@@ -14,7 +14,10 @@ require __DIR__ . '/partials/head.php';
         <h2 class="panel-title">Список отключений</h2>
         <p class="panel-sub" id="ot-count">записей: 0</p>
       </div>
-      <a class="btn primary" href="<?= BASE ?>/outage_form.php">Новое отключение</a>
+      <div class="header-actions">
+        <a class="btn ghost excel-export" href="<?= BASE ?>/export.php?type=outages" download="outages.xlsx" data-filename="outages.xlsx">Экспорт в Excel</a>
+        <a class="btn primary" href="<?= BASE ?>/outage_form.php">Новое отключение</a>
+      </div>
     </div>
     <div class="toolbar">
       <div class="appeal-search">
@@ -44,7 +47,7 @@ require __DIR__ . '/partials/head.php';
     </div>
     <div class="tbl-wrap">
       <table class="tbl" id="ot-table">
-        <thead><tr><th>ID</th><th>Адрес</th><th>Тип</th><th>Причина</th><th>С начала</th><th>План. конец</th><th>Статус</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>Адрес</th><th>Тип</th><th>Причина</th><th>План. начало</th><th>Факт. начало</th><th>План. конец</th><th>Статус</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
     </div>

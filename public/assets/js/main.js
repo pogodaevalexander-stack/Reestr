@@ -40,7 +40,7 @@ async function loadToday() {
       <li class="call">
         <div class="call-top">
           <b>${esc(a.fio)}</b>
-          <time class="mono">${new Date(a.created_at.replace(' ', 'T')).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</time>
+          <time class="mono">${new Date(a.call_at.replace(' ', 'T')).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</time>
         </div>
         <div class="call-addr">${esc(a.address)}</div>
         <div class="call-phone mono">${esc(a.phone)} · <span class="idchip mono">#${a.id}</span></div>

@@ -15,7 +15,7 @@ $pageScript  = $pageScript ?? '';
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;800&family=JetBrains+Mono:wght@500;700&family=Unbounded:wght@500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="<?= BASE ?>/assets/css/app.css">
+<link rel="stylesheet" href="<?= BASE ?>/assets/css/app.css?v=<?= (int)filemtime(__DIR__ . '/../assets/css/app.css') ?>">
 <script>window.YMAPS = { mapKey: '<?= e(YANDEX_MAPS_KEY) ?>', center: <?= json_encode(MAP_CENTER) ?>, bounds: <?= json_encode(MAP_BOUNDS) ?>, zoom: <?= (int)MAP_ZOOM ?> };</script>
 <?php if (YANDEX_MAPS_KEY !== ''): ?>
 <script src="https://api-maps.yandex.ru/2.1/?apikey=<?= e(YANDEX_MAPS_KEY) ?>&lang=ru_RU"></script>
@@ -44,6 +44,12 @@ $pageScript  = $pageScript ?? '';
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/></svg>
       <span>Обращения</span><i class="nav-badge teal" id="badge-calls" hidden></i>
     </a>
+    <?php if (($currentUser['role'] ?? '') === 'admin'): ?>
+    <a class="nav-item<?= $page === 'accounts' ? ' is-active' : '' ?>" href="<?= BASE ?>/accounts.php">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M19 8v6M16 11h6"/></svg>
+      <span>Пользователи</span>
+    </a>
+    <?php endif; ?>
   </nav>
 
 </aside>
@@ -56,7 +62,7 @@ $pageScript  = $pageScript ?? '';
     </div>
     <div class="topbar-right">
       <?php if ($currentUser): ?>
-        <span class="user-chip">Пользователь: <?= e($currentUser['login']) ?></span>
+        <span class="user-chip"><?= e($currentUser['full_name'] !== '' ? $currentUser['full_name'] : $currentUser['login']) ?> · <?= e($currentUser['login']) ?> · <?= ($currentUser['role'] ?? '') === 'admin' ? 'Администратор' : 'Оператор' ?></span>
         <a class="logout-link" href="<?= BASE ?>/logout.php">Выход</a>
       <?php endif; ?>
       <span class="live"><i></i>онлайн</span>

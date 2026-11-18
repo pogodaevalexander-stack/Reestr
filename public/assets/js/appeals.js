@@ -1,7 +1,5 @@
 'use strict';
 
-let lastRows = [];
-
 document.addEventListener('DOMContentLoaded', () => {
   const picker = $('#ap-filter-picker');
   const popup = $('#ap-filter-popup');
@@ -10,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   reload();
   $('#ap-q').addEventListener('input', debounce(reload, 300));
+  $('#ap-status-filter').addEventListener('change', reload);
   fields.forEach((field) => field.addEventListener('change', () => {
     updateFilterLabel();
     reload();
@@ -30,7 +29,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeFilterPopup();
   });
-  $('#ap-table tbody').addEventListener('click', onRowAction);
+  $('#ap-table tbody').addEventListener('click', (event) => {
+    const row = event.target.closest('tr[data-edit-url]');
+    if (row && !event.target.closest('a, button, input, select, textarea')) {
+      location.href = row.dataset.editUrl;
+    }
+  });
+  $('#ap-table tbody').addEventListener('keydown', (event) => {
+    const row = event.target.closest('tr[data-edit-url]');
+    if (row && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      location.href = row.dataset.editUrl;
+    }
+  });
 
   function closeFilterPopup() {
     popup.hidden = true;
@@ -49,9 +60,9 @@ function selectedFields() {
 function reload() {
   const query = $('#ap-q').value.trim();
   const fields = selectedFields();
-  return api({ action: 'appeals', op: 'list', q: query, fields: fields.join(',') })
+  const status = $('#ap-status-filter').value;
+  return api({ action: 'appeals', op: 'list', q: query, fields: fields.join(','), status })
     .then((result) => {
-      lastRows = result.data;
       $('#ap-count').textContent = `записей: ${result.data.length}`;
       render(result.data, query);
     })
@@ -61,35 +72,34 @@ function reload() {
 function render(rows, query) {
   const tbody = $('#ap-table tbody');
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">Обращения не найдены.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">Обращения не найдены.</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map((appeal) => `
-    <tr>
+    <tr class="appeal-row" data-edit-url="${esc((window.APP?.base || '') + '/appeal_form.php?id=' + appeal.id)}">
       <td><span class="idchip mono">#${appeal.id}</span></td>
-      <td class="td-addr">${hl(appeal.address, query)}</td>
-      <td>${hl(appeal.fio, query)}</td>
-      <td class="mono sm">${hl(appeal.phone, query)}</td>
-      <td class="mono sm">${hl(fmtDT(appeal.created_at), query)}</td>
-      <td class="mono sm">${hl(fmtDT(appeal.updated_at), query)}</td>
-      <td class="td-act">
-        <a class="btn ghost sm" href="${esc((window.APP?.base || '') + '/appeal_form.php?id=' + appeal.id)}">Изменить</a>
-        <button class="btn danger sm act-del" data-id="${appeal.id}">Удалить</button>
-      </td>
+      <td class="mono sm ap-date">${hl(fmtDT(appeal.call_at), query)}</td>
+      <td class="td-addr ap-address">${hl(appeal.address, query)}</td>
+      <td class="ap-fio">${hl(appeal.fio, query)}</td>
+      <td class="mono sm ap-phone">${hl(appeal.phone, query)}</td>
+      <td class="ap-type">${hl(appealTypeLabel(appeal.type), query)}</td>
+      <td class="ap-status"><span class="pill ${appeal.status === 'completed' ? 'on' : 'hot'}">${appealStatusLabel(appeal.status)}</span></td>
+      <td class="ap-operator">${hl(appeal.operator_name || '—', query)}</td>
+      <td class="mono sm ap-date">${hl(fmtDT(appeal.created_at), query)}</td>
+      <td class="mono sm ap-date">${hl(fmtDT(appeal.updated_at), query)}</td>
     </tr>`).join('');
 }
 
-function onRowAction(event) {
-  const button = event.target.closest('.act-del');
-  if (!button) return;
-  const id = Number(button.dataset.id);
-  if (!lastRows.some((row) => Number(row.id) === id)) return;
-  if (!confirmSwap(button, { label2: 'Точно удалить?' })) return;
-  api({ action: 'appeals', op: 'delete' }, { method: 'POST', body: { id } })
-    .then(() => {
-      toast(`Обращение #${id} удалено.`, 'ok');
-      reload();
-      loadBadges();
-    })
-    .catch((error) => toast(error.message, 'err'));
+function appealTypeLabel(type) {
+  return ({
+    no_hot_water: 'Нет ГВС',
+    no_heating: 'Нет теплоснабжения',
+    information: 'Предоставление информации',
+    other: 'Другое',
+    false_call: 'Ложный вызов',
+  })[type] || 'Другое';
+}
+
+function appealStatusLabel(status) {
+  return status === 'completed' || status === 'COMPLETED' ? 'Завершено' : 'В работе';
 }

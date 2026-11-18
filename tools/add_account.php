@@ -42,6 +42,12 @@ try {
         throw new RuntimeException('Логин должен содержать 3–64 символа: латинские буквы, цифры, точку, дефис или подчёркивание.');
     }
 
+    echo "ФИО: ";
+    $fullName = trim((string)fgets(STDIN));
+    if (mb_strlen($fullName) < 2 || mb_strlen($fullName) > 255) {
+        throw new RuntimeException('Укажите ФИО длиной от 2 до 255 символов.');
+    }
+
     $password = prompt_hidden('Пароль (не менее 10 символов):');
     $confirmation = prompt_hidden('Повторите пароль:');
     if (strlen($password) < 10) {
@@ -58,9 +64,11 @@ try {
         throw new RuntimeException('Аккаунт с таким логином уже существует.');
     }
 
-    $insert = $pdo->prepare('INSERT INTO accounts (login, password_hash, is_active) VALUES (?, ?, 1)');
-    $insert->execute([$login, password_hash($password, PASSWORD_DEFAULT)]);
-    echo "Аккаунт успешно создан.\n";
+    $admins = (int)$pdo->query("SELECT COUNT(*) FROM accounts WHERE role = 'admin'")->fetchColumn();
+    $role = $admins === 0 ? 'admin' : 'operator';
+    $insert = $pdo->prepare('INSERT INTO accounts (login, full_name, password_hash, role, is_active) VALUES (?, ?, ?, ?, 1)');
+    $insert->execute([$login, $fullName, password_hash($password, PASSWORD_DEFAULT), $role]);
+    echo "Аккаунт успешно создан (роль: " . ($role === 'admin' ? 'администратор' : 'оператор') . ").\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'Ошибка: ' . $error->getMessage() . PHP_EOL);
     exit(1);

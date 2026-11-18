@@ -129,6 +129,8 @@ body {
   padding: 24px 28px 48px; max-width: 1240px; width: 100%; margin: 0 auto;
   display: flex; flex-direction: column; gap: 20px;
 }
+body[data-page="appeals"] .content,
+body[data-page="outages"] .content { max-width: none; }
 
 /* ================= Статистика ================= */
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
@@ -170,6 +172,7 @@ body {
 .panel-head.slim { padding-bottom: 10px; }
 .panel-title { font: 500 14px var(--font-display); letter-spacing: .04em; }
 .panel-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.header-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 
 .main-grid { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(260px, 1fr); gap: 20px; align-items: stretch; }
 .side-panel { display: flex; flex-direction: column; }
@@ -242,6 +245,8 @@ input[type="number"], input[type="date"] { min-width: 0; padding: 8px 10px; }
 select { padding: 9px 10px; font-weight: 600; font-size: 13px; cursor: pointer; }
 .appeal-search { display: flex; flex: 1; min-width: 260px; gap: 8px; align-items: flex-start; }
 .appeal-search .search { min-width: 0; }
+.appeal-status-filter { display: flex; align-items: center; gap: 8px; }
+.appeal-status-filter .field-label { white-space: nowrap; }
 .filter-picker { position: relative; flex: none; }
 .filter-trigger { min-height: 38px; white-space: nowrap; }
 .filter-trigger svg { flex: none; }
@@ -265,14 +270,38 @@ select { padding: 9px 10px; font-weight: 600; font-size: 13px; cursor: pointer; 
 /* ================= Таблицы ================= */
 .tbl-wrap { overflow: auto; max-height: 520px; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.appeals-panel .tbl { width: 100%; min-width: 1338px; table-layout: fixed; }
+.ap-col-id { width: 52px; }
+.ap-col-date { width: 126px; }
+.ap-col-operator { width: 138px; }
+.ap-col-address { width: 205px; }
+.ap-col-fio { width: 158px; }
+.ap-col-phone { width: 125px; }
+.ap-col-type { width: 178px; }
+.ap-col-status { width: 104px; }
 .tbl th {
   position: sticky; top: 0; background: #f6f9fc; z-index: 2; text-align: left;
   font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
   color: var(--muted); font-weight: 700; padding: 10px 12px; border-bottom: 1px solid var(--line);
+  vertical-align: bottom; white-space: normal; line-height: 1.35;
 }
-.tbl td { padding: 10px 12px; border-bottom: 1px solid #eef2f7; vertical-align: middle; }
+.tbl td { padding: 10px 12px; border-bottom: 1px solid #eef2f7; vertical-align: middle; overflow-wrap: anywhere; }
+.appeals-panel .tbl th, .appeals-panel .tbl td,
+.outages-panel .tbl th, .outages-panel .tbl td,
+.panel.span-12 > .tbl-wrap .tbl th, .panel.span-12 > .tbl-wrap .tbl td { padding-left: 7px; padding-right: 7px; }
+.outages-panel .tbl, .panel.span-12 > .tbl-wrap .tbl { width: 100%; min-width: 1060px; }
+.appeals-panel .ap-date, .appeals-panel .ap-phone, .appeals-panel .ap-status { white-space: nowrap; overflow-wrap: normal; }
+.appeals-panel .ap-type { overflow-wrap: anywhere; }
 .tbl tbody tr { transition: background .14s; }
 .tbl tbody tr:hover { background: #f3f8fc; }
+.appeal-row, .outage-row { cursor: pointer; }
+.appeal-row:focus-visible, .outage-row:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.record-form { width: 100%; max-width: 1120px; }
+.record-form .field > input, .record-form .field > select, .record-form .field > textarea,
+.record-form .sg-wrap { width: 100%; }
+.record-form textarea { min-height: 120px; resize: vertical; }
+.record-form #ap-subject { min-height: 170px; }
+.appeal-current-status { font-weight: 700; }
 .td-addr { font-weight: 600; }
 .td-act { white-space: nowrap; text-align: right; }
 .td-act .btn { margin-left: 6px; }
@@ -317,11 +346,43 @@ select { padding: 9px 10px; font-weight: 600; font-size: 13px; cursor: pointer; 
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-label { font-size: 12px; font-weight: 700; letter-spacing: .05em; color: #3f5265; text-transform: uppercase; }
 .field-label i { font-style: normal; text-transform: none; font-weight: 500; color: var(--muted); letter-spacing: 0; }
-.field-hint { font-size: 11.5px; color: var(--muted); }
+.field.is-invalid input, .field.is-invalid select, .field.is-invalid textarea { border-color: var(--red); box-shadow: 0 0 0 3px rgba(226,72,61,.13); }
 .field-row { display: flex; gap: 8px; }
 .field-row select { flex: 1; }
 .field-actions { display: flex; gap: 10px; align-items: center; }
 .form-row.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ================= Управление аккаунтами ================= */
+.account-create-form {
+  display: grid; grid-template-columns: 1fr 1.4fr 1fr 1fr auto; gap: 12px;
+  align-items: end; padding: 16px 18px 18px;
+}
+.account-create-form input, .account-edit-form input[type="text"], .account-edit-form input[type="password"] { width: 100%; padding: 9px 10px; }
+.account-create-form .field { gap: 6px; }
+.account-create-submit { min-height: 39px; }
+.account-message { padding: 12px 15px; border: 1px solid; border-radius: 11px; font-size: 13px; font-weight: 600; }
+.account-message-error { color: #8f2f2b; background: #fde7e5; border-color: #f4c5c0; }
+.account-message-ok { color: #116d5f; background: #e0f4ef; border-color: #b7e5d9; }
+.account-table-wrap { overflow-x: auto; }
+.account-table { width: 100%; border-collapse: collapse; }
+.account-table th { padding: 10px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10.5px; letter-spacing: .1em; text-align: left; text-transform: uppercase; }
+.account-table td { padding: 10px 12px; border-bottom: 1px solid #eef2f7; }
+.account-actions { text-align: right; white-space: nowrap; }
+.account-buttons { display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
+.account-buttons form { display: none; }
+.account-check { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+.account-check input { accent-color: var(--teal); }
+.account-dialog { width: min(560px, calc(100vw - 28px)); max-width: none; max-height: calc(100vh - 32px); margin: auto; padding: 0; overflow: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); color: var(--ink); box-shadow: 0 24px 70px rgba(10,25,40,.28); }
+.account-dialog::backdrop { background: rgba(8,20,32,.54); backdrop-filter: blur(3px); }
+.account-edit-form { display: flex; flex-direction: column; gap: 18px; padding: 22px; }
+.account-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.account-dialog-close { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--muted); font-size: 24px; line-height: 1; cursor: pointer; }
+.account-edit-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.account-edit-fields .field { min-width: 0; }
+.account-edit-fields select { width: 100%; }
+.account-edit-active { align-self: end; min-height: 39px; }
+.account-dialog-actions { display: flex; justify-content: flex-end; gap: 9px; padding-top: 14px; border-top: 1px solid var(--line); }
+.account-empty { padding: 24px !important; color: var(--muted); text-align: center; }
 
 .type-radio { border: 0; display: flex; flex-direction: column; gap: 8px; }
 .tr {
@@ -391,6 +452,13 @@ select { padding: 9px 10px; font-weight: 600; font-size: 13px; cursor: pointer; 
   .page-grid { grid-template-columns: 1fr; }
   .span-5, .span-7 { grid-column: auto; }
   .form-row.two { grid-template-columns: 1fr; }
+  .account-create-form { grid-template-columns: repeat(2, 1fr); }
+  .account-table thead { display: none; }
+  .account-table tbody tr { display: block; padding: 8px 12px; }
+  .account-table tbody td { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border: 0; text-align: right; }
+  .account-table tbody td::before { content: attr(data-label); color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-align: left; text-transform: uppercase; }
+  .account-table tbody td.account-actions { justify-content: flex-end; }
+  .account-buttons { justify-content: flex-end; }
 }
 @media (max-width: 760px) {
   .side { position: static; width: auto; flex-direction: row; align-items: center; gap: 14px; padding: 12px 16px; flex-wrap: wrap; }
@@ -402,6 +470,11 @@ select { padding: 9px 10px; font-weight: 600; font-size: 13px; cursor: pointer; 
   .topbar { position: static; }
   .stats { gap: 10px; }
   .content { padding: 16px 14px 40px; }
+  .appeal-status-filter { width: 100%; justify-content: flex-end; }
+  .appeal-status-filter select { flex: 1; }
+  .account-create-form { grid-template-columns: 1fr; }
+  .account-edit-fields { grid-template-columns: 1fr; }
+  .account-edit-form { padding: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

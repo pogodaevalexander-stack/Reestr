@@ -2,11 +2,12 @@
 chcp 65001 >nul
 setlocal
 
-set "PHP_EXE=C:\xampp\php\php.exe"
+if not defined XAMPP_HOME set "XAMPP_HOME=C:\xampp"
+set "PHP_EXE=%XAMPP_HOME%\php\php.exe"
 if not exist "%PHP_EXE%" (
   where php >nul 2>nul
   if errorlevel 1 (
-    echo [!] PHP не найден. Установите XAMPP в C:\xampp или добавьте PHP в PATH.
+    echo [!] PHP не найден. Задайте XAMPP_HOME или добавьте PHP в PATH.
     pause
     exit /b 1
   )
