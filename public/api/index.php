@@ -83,7 +83,6 @@ try {
             break;
 
         case 'operator_stats':
-            api_admin_only($apiUser);
             $from = api_datetime_filter($_GET['from'] ?? null);
             $to = api_datetime_end_filter($_GET['to'] ?? null);
             $stats = (new AppealRepository())->operatorStats($from, $to);

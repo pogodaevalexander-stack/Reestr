@@ -44,10 +44,14 @@ $pageScript  = $pageScript ?? '';
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/></svg>
       <span>Обращения</span><i class="nav-badge teal" id="badge-calls" hidden></i>
     </a>
-    <?php if (($currentUser['role'] ?? '') === 'admin'): ?>
-    <a class="nav-item<?= $page === 'admin_stats' ? ' is-active' : '' ?>" href="<?= BASE ?>/admin_stats.php">
+    <a class="nav-item<?= $page === 'stats' ? ' is-active' : '' ?>" href="<?= BASE ?>/stats.php">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h17M8 16v-4M13 16V8M18 16V4"/></svg>
-      <span>Статистика и журнал</span>
+      <span>Статистика</span>
+    </a>
+    <?php if (($currentUser['role'] ?? '') === 'admin'): ?>
+    <a class="nav-item<?= $page === 'admin_audit' ? ' is-active' : '' ?>" href="<?= BASE ?>/admin_audit.php">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>
+      <span>Журнал действий</span>
     </a>
     <a class="nav-item<?= $page === 'admin_delete' ? ' is-active' : '' ?>" href="<?= BASE ?>/admin_delete.php">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 10v6m4-6v6"/></svg>
