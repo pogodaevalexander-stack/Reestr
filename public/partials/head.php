@@ -45,6 +45,14 @@ $pageScript  = $pageScript ?? '';
       <span>Обращения</span><i class="nav-badge teal" id="badge-calls" hidden></i>
     </a>
     <?php if (($currentUser['role'] ?? '') === 'admin'): ?>
+    <a class="nav-item<?= $page === 'admin_stats' ? ' is-active' : '' ?>" href="<?= BASE ?>/admin_stats.php">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h17M8 16v-4M13 16V8M18 16V4"/></svg>
+      <span>Статистика и журнал</span>
+    </a>
+    <a class="nav-item<?= $page === 'admin_delete' ? ' is-active' : '' ?>" href="<?= BASE ?>/admin_delete.php">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14M10 10v6m4-6v6"/></svg>
+      <span>Удаление по периоду</span>
+    </a>
     <a class="nav-item<?= $page === 'accounts' ? ' is-active' : '' ?>" href="<?= BASE ?>/accounts.php">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M19 8v6M16 11h6"/></svg>
       <span>Пользователи</span>

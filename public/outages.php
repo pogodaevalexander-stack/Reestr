@@ -34,8 +34,9 @@ require __DIR__ . '/partials/head.php';
             <strong>Фильтры отключений</strong>
             <span class="filter-group-title">Тип</span>
             <label><input type="radio" name="ot-type" value="all" checked> Все типы</label>
-            <label><input type="radio" name="ot-type" value="hot_water"> ГВС</label>
-            <label><input type="radio" name="ot-type" value="heating"> Отопление</label>
+            <label><input type="radio" name="ot-type" value="shutdown"> Отключение</label>
+            <label><input type="radio" name="ot-type" value="damage"> Повреждение</label>
+            <label><input type="radio" name="ot-type" value="improvement"> Благоустройство</label>
             <span class="filter-group-title">Статус</span>
             <label><input type="radio" name="ot-status" value="all" checked> Все статусы</label>
             <label><input type="radio" name="ot-status" value="active"> Активные</label>
@@ -44,31 +45,12 @@ require __DIR__ . '/partials/head.php';
           </div>
         </div>
       </div>
+      <label class="field period-filter"><span class="field-label">С</span><input type="datetime-local" id="ot-from"></label>
+      <label class="field period-filter"><span class="field-label">По</span><input type="datetime-local" id="ot-to"></label>
     </div>
     <div class="tbl-wrap">
       <table class="tbl" id="ot-table">
         <thead><tr><th>ID</th><th>Адрес</th><th>Тип</th><th>Причина</th><th>План. начало</th><th>Факт. начало</th><th>План. конец</th><th>Статус</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="panel span-12">
-    <div class="panel-head slim">
-      <div>
-        <h2 class="panel-title">Адреса из базы</h2>
-        <p class="panel-sub" id="hs-count">адресов: 0</p>
-      </div>
-    </div>
-    <div class="toolbar">
-      <div class="search">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input type="search" id="hs-q" placeholder="поиск: ID или адрес…">
-      </div>
-    </div>
-    <div class="tbl-wrap">
-      <table class="tbl" id="hs-table">
-        <thead><tr><th>ID</th><th>Адрес</th><th>Отключения</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>

@@ -4,25 +4,25 @@
 'use strict';
 
 const TYPE = {
-  hot_water: { label: 'ГВС',         color: '#f59f0a' },
-  heating:   { label: 'Отопление',   color: '#e2483d' },
+  shutdown: { label: 'Отключение', color: '#f59f0a' },
+  damage: { label: 'Повреждение', color: '#e2483d' },
+  improvement: { label: 'Благоустройство', color: '#0e9d8c' },
 };
 const CALL_COLOR = '#0e9d8c';
 
-const state = { map: null, collections: {}, layers: { hot_water: true, heating: true, appeals: true } };
+const state = { map: null };
 
 document.addEventListener('DOMContentLoaded', () => {
   loadStats();
   loadToday();
   initMap();
-  bindLegend();
 });
 
 /* ---------- статистика ---------- */
 async function loadStats() {
   try {
     const d = (await api({ action: 'stats' })).data;
-    ['outages', 'calls_today', 'houses', 'appeals'].forEach((k) => {
+    ['outages', 'appeals_in_work'].forEach((k) => {
       const el = document.querySelector(`[data-stat="${k}"]`);
       if (el) countUp(el, d[k]);
     });
@@ -33,7 +33,12 @@ async function loadStats() {
 async function loadToday() {
   const box = $('#today-list');
   try {
-    const d = (await api({ action: 'appeals', op: 'list', today: '1' })).data;
+    const d = (await api({ action: 'appeals', op: 'list', today: '1' })).data
+      .sort((a, b) => {
+        const statusOrder = (a.status === 'completed' ? 1 : 0) - (b.status === 'completed' ? 1 : 0);
+        if (statusOrder !== 0) return statusOrder;
+        return new Date(b.call_at.replace(' ', 'T')) - new Date(a.call_at.replace(' ', 'T'));
+      });
     $('#today-note').textContent = `звонков за день: ${d.length}`;
     if (!d.length) { box.innerHTML = '<li class="empty">Сегодня звонков не было.</li>'; return; }
     box.innerHTML = d.slice(0, 10).map((a) => `
@@ -73,8 +78,9 @@ async function initMap() {
     { balloonContent: html, hintContent: o.address },
     { iconColor: color, preset: 'islands#circleDotIcon' });
 
-  const cHot  = new ymaps.GeoObjectCollection();
-  const cHeat = new ymaps.GeoObjectCollection();
+  const cShutdown = new ymaps.GeoObjectCollection();
+  const cDamage = new ymaps.GeoObjectCollection();
+  const cImprovement = new ymaps.GeoObjectCollection();
   const cCall = new ymaps.GeoObjectCollection();
   let noCoords = 0;
   let outsideOmsk = 0;
@@ -86,8 +92,9 @@ async function initMap() {
   data.outages.forEach((o) => {
     if (o.lat == null || o.lng == null) { noCoords++; return; }
     if (!isInOmsk(Number(o.lat), Number(o.lng))) { outsideOmsk++; return; }
-    const t = TYPE[o.type] || TYPE.hot_water;
-    (o.type === 'heating' ? cHeat : cHot).add(mk(o, t.color,
+    const t = TYPE[o.type] || TYPE.shutdown;
+    const collection = o.type === 'damage' ? cDamage : (o.type === 'improvement' ? cImprovement : cShutdown);
+    collection.add(mk(o, t.color,
       `<div class="mbal"><b>${esc(o.address)}</b>`
       + `<span class="mbal-tag" style="--c:${t.color}">${t.label} · отключено</span>`
       + `<span class="mbal-id mono">#${o.id}${o.reason ? ' · ' + esc(o.reason) : ''}</span></div>`));
@@ -102,12 +109,12 @@ async function initMap() {
       + `<span class="mbal-id mono">#${a.id} · ${esc(a.fio)} · ${esc(a.phone)}</span></div>`));
   });
 
-  state.collections = { hot_water: cHot, heating: cHeat, appeals: cCall };
-  map.geoObjects.add(cHot);
-  map.geoObjects.add(cHeat);
+  map.geoObjects.add(cShutdown);
+  map.geoObjects.add(cDamage);
+  map.geoObjects.add(cImprovement);
   map.geoObjects.add(cCall);
 
-  const all = [...cHot.getAll(), ...cHeat.getAll(), ...cCall.getAll()];
+  const all = [...cShutdown.getAll(), ...cDamage.getAll(), ...cImprovement.getAll(), ...cCall.getAll()];
   const note = $('#map-note');
   if (note) note.textContent = `${all.length} объектов на карте` + (noCoords ? ` · ${noCoords} без координат` : '') + (outsideOmsk ? ` · ${outsideOmsk} вне Омска` : '');
 }
@@ -121,18 +128,3 @@ function showFallback(msg) {
   if (msg) { const p = fb.querySelector('p'); if (p) p.textContent = msg; }
 }
 
-/* ---------- переключатели слоёв ---------- */
-function bindLegend() {
-  $$('#legend .chip').forEach((ch) => ch.addEventListener('click', () => {
-    ch.classList.toggle('is-on');
-    const layer = ch.dataset.layer;
-    state.layers[layer] = ch.classList.contains('is-on');
-    const col = state.collections[layer];
-    if (!state.map || !col) return;
-    if (state.layers[layer]) {
-      state.map.geoObjects.add(col);
-    } else {
-      col.getAll().forEach((o) => state.map.geoObjects.remove(o));
-    }
-  }));
-}

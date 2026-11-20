@@ -16,3 +16,6 @@ Thumbs.db
 *.log
 *.tmp
 *.bak
+/archive/*.jsonl
+/archive/.archive.lock
+/archive/.last-run

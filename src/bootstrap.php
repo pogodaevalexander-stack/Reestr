@@ -188,9 +188,139 @@ function get_stats(): array
 {
     $pdo = Database::pdo();
     return [
-        'outages'     => (int)$pdo->query('SELECT COUNT(*) FROM outages WHERE is_active = 1')->fetchColumn(),
-        'calls_today' => (int)$pdo->query('SELECT COUNT(*) FROM appeals WHERE DATE(call_at) = CURDATE()')->fetchColumn(),
-        'houses'      => (int)$pdo->query('SELECT COUNT(*) FROM houses')->fetchColumn(),
-        'appeals'     => (int)$pdo->query('SELECT COUNT(*) FROM appeals')->fetchColumn(),
+        'outages' => (int)$pdo->query('SELECT COUNT(DISTINCT house_id) FROM outages WHERE is_active = 1')->fetchColumn(),
+        'appeals_in_work' => (int)$pdo->query("SELECT COUNT(*) FROM appeals WHERE status = 'in_work'")->fetchColumn(),
     ];
 }
+
+/** Записывает действие текущего пользователя в административный журнал. */
+function audit_log(string $action, string $entity, ?int $entityId, ?array $before, ?array $after): void
+{
+    $user = auth_user() ?? [];
+    $details = json_encode(['before' => $before, 'after' => $after], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    $st = Database::pdo()->prepare(
+        'INSERT INTO audit_log (actor_id, actor_name, action, entity, entity_id, details) VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    $st->execute([
+        isset($user['id']) ? (int)$user['id'] : null,
+        (string)($user['full_name'] ?? $user['login'] ?? 'Система'),
+        $action, $entity, $entityId, $details,
+    ]);
+}
+
+/** Ежемесячный накопительный архив записей за скользящие последние три месяца. */
+function archive_recent_records(): void
+{
+    $directory = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'archive';
+    if (!is_dir($directory) && !@mkdir($directory, 0770, true) && !is_dir($directory)) return;
+    $month = date('Y-m');
+    $lock = @fopen($directory . DIRECTORY_SEPARATOR . '.archive.lock', 'c');
+    if ($lock === false || !flock($lock, LOCK_EX)) return;
+    try {
+        $markerPath = $directory . DIRECTORY_SEPARATOR . '.last-run';
+        if (is_file($markerPath) && trim((string)file_get_contents($markerPath)) === $month) return;
+        $path = $directory . DIRECTORY_SEPARATOR . $month . '.jsonl';
+        $seen = [];
+        if (is_file($path)) {
+            $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+            foreach ($lines as $line) {
+                $entry = json_decode($line, true);
+                if (is_array($entry) && isset($entry['entity'], $entry['record_id'])) {
+                    $seen[$entry['entity'] . ':' . $entry['record_id']] = true;
+                }
+            }
+        }
+        $pdo = Database::pdo();
+        $linesToAppend = [];
+        foreach (['appeals', 'outages'] as $entity) {
+            $rows = $pdo->query("SELECT * FROM `$entity` WHERE created_at >= DATE_SUB(NOW(), INTERVAL 3 MONTH) ORDER BY created_at, id")->fetchAll();
+            foreach ($rows as $row) {
+                $key = $entity . ':' . $row['id'];
+                if (isset($seen[$key])) continue;
+                $linesToAppend[] = json_encode([
+                    'archive_month' => $month,
+                    'archived_at' => date(DATE_ATOM),
+                    'entity' => $entity,
+                    'record_id' => (int)$row['id'],
+                    'record' => $row,
+                ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+            }
+        }
+        if ($linesToAppend !== []) {
+            $written = @file_put_contents($path, implode(PHP_EOL, $linesToAppend) . PHP_EOL, FILE_APPEND | LOCK_EX);
+            if ($written === false) return;
+        }
+        @file_put_contents($markerPath, $month . PHP_EOL, LOCK_EX);
+    } catch (Throwable $error) {
+        error_log('Archive job failed: ' . $error->getMessage());
+    } finally {
+        flock($lock, LOCK_UN);
+        fclose($lock);
+    }
+}
+
+/** Подстраивает уже установленную БД под новые поля статистики и отключений. */
+function ensure_feature_schema(): void
+{
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+
+    $pdo = Database::pdo();
+    $columnType = static function (string $table, string $column) use ($pdo): ?string {
+        $st = $pdo->prepare(
+            'SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1'
+        );
+        $st->execute([$table, $column]);
+        $value = $st->fetchColumn();
+        return $value === false ? null : (string)$value;
+    };
+
+    $outageType = $columnType('outages', 'type');
+    if ($outageType !== null) {
+        $legacyType = strpos($outageType, 'hot_water') !== false || strpos($outageType, 'heating') !== false;
+        if ($legacyType) {
+            $pdo->exec("ALTER TABLE outages MODIFY type ENUM('hot_water','heating','shutdown','damage','improvement') NOT NULL DEFAULT 'shutdown'");
+            $pdo->exec("UPDATE outages SET type = 'shutdown' WHERE type IN ('hot_water','heating')");
+        }
+        if ($legacyType || strpos($outageType, 'improvement') === false || strpos($outageType, 'damage') === false) {
+            $pdo->exec("ALTER TABLE outages MODIFY type ENUM('shutdown','damage','improvement') NOT NULL DEFAULT 'shutdown'");
+        }
+    }
+
+    if ($columnType('outages', 'detail_type') === null) {
+        $pdo->exec("ALTER TABLE outages ADD COLUMN detail_type ENUM('full_shutdown','supply_without_circulation','damage_without_shutdown') NOT NULL DEFAULT 'full_shutdown' AFTER type");
+    }
+
+    $backfillClosed = false;
+    if ($columnType('appeals', 'closed_at') === null) {
+        $pdo->exec('ALTER TABLE appeals ADD COLUMN closed_at DATETIME NULL AFTER updated_at');
+        $backfillClosed = true;
+    }
+    if ($columnType('appeals', 'closed_by') === null) {
+        $pdo->exec('ALTER TABLE appeals ADD COLUMN closed_by VARCHAR(255) NULL AFTER closed_at');
+        $backfillClosed = true;
+    }
+    if ($backfillClosed) {
+        $pdo->exec("UPDATE appeals SET closed_at = updated_at, closed_by = operator_name WHERE status = 'completed' AND closed_at IS NULL");
+    }
+
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS audit_log (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            actor_id INT UNSIGNED NULL,
+            actor_name VARCHAR(255) NOT NULL DEFAULT '',
+            action VARCHAR(64) NOT NULL,
+            entity VARCHAR(32) NOT NULL,
+            entity_id BIGINT UNSIGNED NULL,
+            details JSON NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_audit_created (created_at),
+            KEY idx_audit_actor (actor_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+}
+
+ensure_feature_schema();
+archive_recent_records();

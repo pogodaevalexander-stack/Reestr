@@ -54,6 +54,8 @@ require __DIR__ . '/partials/head.php';
             <option value="completed">Завершено</option>
           </select>
         </label>
+        <label class="field period-filter"><span class="field-label">С</span><input type="datetime-local" id="ap-from"></label>
+        <label class="field period-filter"><span class="field-label">По</span><input type="datetime-local" id="ap-to"></label>
     </div>
     <div class="tbl-wrap">
       <table class="tbl" id="ap-table">

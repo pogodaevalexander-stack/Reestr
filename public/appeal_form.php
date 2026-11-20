@@ -65,7 +65,7 @@ require __DIR__ . '/partials/head.php';
       <div class="field-actions">
         <button type="submit" class="btn primary">Сохранить</button>
         <button type="button" class="btn ghost" id="ap-close" hidden>Закрыть обращение</button>
-        <button type="button" class="btn danger" id="ap-delete" hidden>Удалить обращение</button>
+        <?php if (($currentUser['role'] ?? '') === 'admin'): ?><button type="button" class="btn danger" id="ap-delete" hidden>Удалить обращение</button><?php endif; ?>
         <a class="btn ghost" href="<?= BASE ?>/appeals.php">Отмена</a>
       </div>
     </form>

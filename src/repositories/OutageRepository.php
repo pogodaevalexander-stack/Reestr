@@ -1,8 +1,9 @@
 <?php
-/** Отключения: ГВС (hot_water) и отопление (heating). */
+/** Отключения, повреждения и благоустройство. */
 final class OutageRepository
 {
-    private const TYPES = ['hot_water', 'heating'];
+    private const TYPES = ['shutdown', 'damage', 'improvement'];
+    private const DETAILS = ['full_shutdown', 'supply_without_circulation', 'damage_without_shutdown'];
 
     private PDO $db;
 
@@ -12,7 +13,7 @@ final class OutageRepository
     }
 
     /** Список с фильтрами: поиск (ID/адрес/тип/причина), тип, статус. */
-    public function list(?string $q = null, string $type = 'all', string $status = 'all'): array
+    public function list(?string $q = null, string $type = 'all', string $status = 'all', ?string $from = null, ?string $to = null): array
     {
         $sql    = 'SELECT o.*, h.address, h.lat, h.lng
                    FROM outages o
@@ -29,20 +30,26 @@ final class OutageRepository
         } elseif ($status !== 'all') {
             $conds[] = 'o.is_active = 1';
         }
+        if ($from !== null) { $conds[] = 'o.actual_start >= ?'; $args[] = $from; }
+        if ($to !== null) { $conds[] = 'o.actual_start <= ?'; $args[] = $to; }
 
         if ($q !== null && trim($q) !== '') {
             $q     = trim($q);
             $cond  = 'CAST(o.id AS CHAR) = ? OR h.address LIKE ? OR o.reason LIKE ?';
             $extra = [$q, '%' . $q . '%', '%' . $q . '%'];
 
-            // поиск по русским словам типа: «вод…», «отопл…»
+            // Поиск по названиям категорий и видов.
             $hit = [];
-            if (strpos($q, 'вод') !== false)                                        $hit[] = 'hot_water';
-            if (strpos($q, 'отопл') !== false || strpos($q, 'отопит') !== false)    $hit[] = 'heating';
+            if (mb_stripos($q, 'отключ') !== false) $hit[] = 'shutdown';
+            if (mb_stripos($q, 'повреж') !== false) $hit[] = 'damage';
+            if (mb_stripos($q, 'благо') !== false) $hit[] = 'improvement';
             if ($hit) {
                 $cond  .= ' OR o.type IN (' . implode(',', array_fill(0, count($hit), '?')) . ')';
                 $extra  = array_merge($extra, $hit);
             }
+            if (mb_stripos($q, 'полное') !== false) { $cond .= ' OR o.detail_type = ?'; $extra[] = 'full_shutdown'; }
+            if (mb_stripos($q, 'циркуляц') !== false) { $cond .= ' OR o.detail_type = ?'; $extra[] = 'supply_without_circulation'; }
+            if (mb_stripos($q, 'без отключ') !== false) { $cond .= ' OR o.detail_type = ?'; $extra[] = 'damage_without_shutdown'; }
             $conds[] = '(' . $cond . ')';
             $args    = array_merge($args, $extra);
         }
@@ -80,16 +87,16 @@ final class OutageRepository
         return $row === false ? null : $row;
     }
 
-    public function create(int $houseId, string $type, ?string $plannedStart, string $actualStart, ?string $reason, ?string $plannedEnd): int
+    public function create(int $houseId, string $type, string $detailType, ?string $plannedStart, string $actualStart, ?string $reason, ?string $plannedEnd): int
     {
         $st = $this->db->prepare(
-            'INSERT INTO outages (house_id, type, planned_start, actual_start, reason, planned_end) VALUES (?, ?, ?, ?, ?, ?)'
+            'INSERT INTO outages (house_id, type, detail_type, planned_start, actual_start, reason, planned_end) VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
-        $st->execute([$houseId, $type, $plannedStart, $actualStart, $reason, $plannedEnd]);
+        $st->execute([$houseId, $type, $detailType, $plannedStart, $actualStart, $reason, $plannedEnd]);
         return (int)$this->db->lastInsertId();
     }
 
-    /** Частичное обновление: type / reason / planned_start / actual_start / planned_end / is_active. */
+    /** Частичное обновление полей отключения. */
     public function update(array $in): void
     {
         $id  = (int)($in['id'] ?? 0);
@@ -97,6 +104,7 @@ final class OutageRepository
         $args = [];
 
         if (isset($in['type']) && in_array($in['type'], self::TYPES, true)) { $set[] = 'type = ?';        $args[] = $in['type']; }
+        if (isset($in['detail_type']) && in_array($in['detail_type'], self::DETAILS, true)) { $set[] = 'detail_type = ?'; $args[] = $in['detail_type']; }
         if (isset($in['house_id']) && (int)$in['house_id'] > 0) { $set[] = 'house_id = ?'; $args[] = (int)$in['house_id']; }
         if (array_key_exists('reason', $in))        { $set[] = 'reason = ?';      $args[] = $in['reason'] !== '' ? $in['reason'] : null; }
         if (array_key_exists('planned_start', $in)) { $set[] = 'planned_start = ?'; $args[] = $in['planned_start'] !== '' ? $in['planned_start'] : null; }
@@ -117,4 +125,7 @@ final class OutageRepository
         $st = $this->db->prepare('DELETE FROM outages WHERE id = ?');
         $st->execute([$id]);
     }
+
+    public static function validType(string $type): bool { return in_array($type, self::TYPES, true); }
+    public static function validDetail(string $detail): bool { return in_array($detail, self::DETAILS, true); }
 }

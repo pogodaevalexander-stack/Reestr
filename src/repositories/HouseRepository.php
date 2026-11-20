@@ -36,6 +36,26 @@ final class HouseRepository
         return $row === false ? null : $row;
     }
 
+    public function findOrCreate(string $address, ?float $lat, ?float $lng): int
+    {
+        $address = trim($address);
+        if (mb_strlen($address) < 5 || mb_strlen($address) > 255) {
+            throw new InvalidArgumentException('Укажите адрес длиной от 5 до 255 символов.');
+        }
+        $st = $this->db->prepare('SELECT id FROM houses WHERE address = ? LIMIT 1');
+        $st->execute([$address]);
+        $id = $st->fetchColumn();
+        if ($id !== false) {
+            if ($lat !== null && $lng !== null) {
+                $this->db->prepare('UPDATE houses SET lat = ?, lng = ? WHERE id = ?')->execute([$lat, $lng, $id]);
+            }
+            return (int)$id;
+        }
+        $st = $this->db->prepare('INSERT INTO houses (address, lat, lng) VALUES (?, ?, ?)');
+        $st->execute([$address, $lat, $lng]);
+        return (int)$this->db->lastInsertId();
+    }
+
     public function update(int $id, string $address, ?float $lat, ?float $lng): void
     {
         $st = $this->db->prepare('UPDATE houses SET address = ?, lat = ?, lng = ? WHERE id = ?');

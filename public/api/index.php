@@ -13,6 +13,18 @@ require_once __DIR__ . '/../../src/bootstrap.php';
 if (auth_user() === null) {
     fail('Необходима авторизация.', 401);
 }
+$apiUser = auth_user();
+$accountCheck = Database::pdo()->prepare('SELECT login, full_name, role, is_active FROM accounts WHERE id = ? LIMIT 1');
+$accountCheck->execute([(int)$apiUser['id']]);
+$activeAccount = $accountCheck->fetch();
+if ($activeAccount === false || (int)$activeAccount['is_active'] !== 1) {
+    logout_user();
+    fail('Учётная запись неактивна. Войдите в систему заново.', 401);
+}
+$_SESSION['auth_user'] = array_merge($apiUser, [
+    'login' => $activeAccount['login'], 'full_name' => $activeAccount['full_name'], 'role' => $activeAccount['role'],
+]);
+$apiUser = $_SESSION['auth_user'];
 
 $action = (string)($_GET['action'] ?? '');
 $op     = (string)($_GET['op'] ?? 'list');
@@ -70,6 +82,43 @@ try {
             json_response(['ok' => true, 'data' => get_stats()]);
             break;
 
+        case 'operator_stats':
+            api_admin_only($apiUser);
+            $from = api_datetime_filter($_GET['from'] ?? null);
+            $to = api_datetime_end_filter($_GET['to'] ?? null);
+            $stats = (new AppealRepository())->operatorStats($from, $to);
+            json_response(['ok' => true, 'data' => $stats]);
+
+        case 'audit':
+            api_admin_only($apiUser);
+            $st = Database::pdo()->query('SELECT id, actor_name, action, entity, entity_id, details, created_at FROM audit_log ORDER BY id DESC');
+            json_response(['ok' => true, 'data' => $st->fetchAll()]);
+
+        case 'delete_period': {
+            api_admin_only($apiUser);
+            $from = api_required_filter($_POST['from'] ?? $in['from'] ?? null);
+            $to = api_datetime_end_filter($_POST['to'] ?? $in['to'] ?? null);
+            if ($to === null) fail('Для удаления обязательно укажите начало и конец периода.');
+            $entity = (string)($in['entity'] ?? '');
+            if (!in_array($entity, ['appeals', 'outages'], true) || $from > $to) fail('Укажите корректный тип и период.');
+            $pdo = Database::pdo();
+            $pdo->beginTransaction();
+            try {
+                $column = $entity === 'appeals' ? 'call_at' : 'actual_start';
+                $query = $pdo->prepare("SELECT COUNT(*) FROM `$entity` WHERE `$column` BETWEEN ? AND ?");
+                $query->execute([$from, $to]);
+                $deletedCount = (int)$query->fetchColumn();
+                $delete = $pdo->prepare("DELETE FROM `$entity` WHERE `$column` BETWEEN ? AND ?");
+                $delete->execute([$from, $to]);
+                audit_log('period_delete', $entity, null, null, ['from' => $from, 'to' => $to, 'count' => $deletedCount]);
+                $pdo->commit();
+                json_response(['ok' => true, 'data' => ['deleted' => $deletedCount]]);
+            } catch (Throwable $error) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                throw $error;
+            }
+        }
+
         case 'map': {
             $data = [
                 'outages' => (new OutageRepository())->active(),
@@ -89,13 +138,21 @@ try {
                     $id      = (int)($in['id'] ?? 0);
                     $address = trim((string)($in['address'] ?? ''));
                     if ($id <= 0 || mb_strlen($address) < 5) fail('Некорректные данные.');
+                    $before = $r->find($id);
+                    if ($before === null) fail('Дом не найден.', 404);
                     $r->update($id, $address, self_lat($in), self_lng($in));
+                    audit_log('update', 'house', $id, $before, $r->find($id));
                     json_response(['ok' => true]);
                 }
 
-                case 'delete':
-                    $r->delete((int)($in['id'] ?? 0));
+                case 'delete': {
+                    api_admin_only($apiUser);
+                    $id = (int)($in['id'] ?? 0);
+                    $before = $r->find($id);
+                    $r->delete($id);
+                    audit_log('delete', 'house', $id, $before, null);
                     json_response(['ok' => true]);
+                }
 
                 default:
                     fail("Неизвестная операция: $op");
@@ -116,29 +173,46 @@ try {
                     json_response(['ok' => true, 'data' => $r->list(
                         $_GET['q'] ?? null,
                         $_GET['type'] ?? 'all',
-                        $_GET['status'] ?? 'all'
+                        $_GET['status'] ?? 'all',
+                        api_datetime_filter($_GET['from'] ?? null),
+                        api_datetime_end_filter($_GET['to'] ?? null)
                     )]);
 
                 case 'create': {
                     $houseId = (int)($in['house_id'] ?? 0);
+                    $address = trim((string)($in['address'] ?? ''));
                     $type    = (string)($in['type'] ?? '');
+                    $detailType = (string)($in['detail_type'] ?? 'full_shutdown');
                     $reason  = trim((string)($in['reason'] ?? ''));
                     $plannedStart = self_datetime($in['planned_start'] ?? null);
                     $actualStart = self_required_datetime($in['actual_start'] ?? null, 'Укажите фактическое время отключения.');
                     $planned = self_datetime($in['planned_end'] ?? null);
 
-                    if ($houseId <= 0) fail('Выберите дом из реестра.');
-                    if (!in_array($type, ['hot_water', 'heating'], true)) fail('Выберите тип отключения.');
-                    if ((new HouseRepository())->find($houseId) === null) fail('Дом не найден в реестре.', 422);
+                    if (!OutageRepository::validType($type)) fail('Выберите категорию отключения.');
+                    if (!OutageRepository::validDetail($detailType)) fail('Выберите вид отключения.');
+                    $houses = new HouseRepository();
+                    if ($houseId > 0) {
+                        $house = $houses->find($houseId);
+                        if ($house === null) fail('Дом не найден в реестре.', 422);
+                    } else {
+                        $houseId = $houses->findOrCreate($address, self_lat($in), self_lng($in));
+                    }
 
-                    $id = $r->create($houseId, $type, $plannedStart, $actualStart, $reason !== '' ? $reason : null, $planned);
+                    $id = $r->create($houseId, $type, $detailType, $plannedStart, $actualStart, $reason !== '' ? $reason : null, $planned);
+                    audit_log('create', 'outage', $id, null, $r->find($id));
                     json_response(['ok' => true, 'data' => ['id' => $id]], 201);
                 }
 
                 case 'update':
                     $id = (int)($in['id'] ?? 0);
                     if ($id <= 0) fail('Не указано ID отключения.');
-                    if (isset($in['type']) && !in_array($in['type'], ['hot_water', 'heating'], true)) fail('Выберите тип отключения.');
+                    if (isset($in['type']) && !OutageRepository::validType((string)$in['type'])) fail('Выберите категорию отключения.');
+                    if (isset($in['detail_type']) && !OutageRepository::validDetail((string)$in['detail_type'])) fail('Выберите вид отключения.');
+                    $before = $r->find($id);
+                    if ($before === null) fail('Отключение не найдено.', 404);
+                    if (isset($in['address'])) {
+                        $in['house_id'] = (new HouseRepository())->findOrCreate(trim((string)$in['address']), self_lat($in), self_lng($in));
+                    }
                     if (isset($in['house_id']) && (new HouseRepository())->find((int)$in['house_id']) === null) fail('Дом не найден в реестре.', 422);
                     if (array_key_exists('planned_start', $in)) {
                         $in['planned_start'] = self_datetime($in['planned_start']);
@@ -151,10 +225,15 @@ try {
                     }
                     if (array_key_exists('house_id', $in) && (int)$in['house_id'] <= 0) fail('Выберите дом из реестра.');
                     $r->update($in);
+                    audit_log('update', 'outage', $id, $before, $r->find($id));
                     json_response(['ok' => true]);
 
                 case 'delete':
-                    $r->delete((int)($in['id'] ?? 0));
+                    api_admin_only($apiUser);
+                    $deleteId = (int)($in['id'] ?? 0);
+                    $before = $r->find($deleteId);
+                    $r->delete($deleteId);
+                    audit_log('delete', 'outage', $deleteId, $before, null);
                     json_response(['ok' => true]);
 
                 default:
@@ -179,7 +258,9 @@ try {
                         $_GET['q'] ?? null,
                         $today,
                         $fields,
-                        (string)($_GET['status'] ?? 'all')
+                        (string)($_GET['status'] ?? 'all'),
+                        api_datetime_filter($_GET['from'] ?? null),
+                        api_datetime_end_filter($_GET['to'] ?? null)
                     )]);
 
                 case 'create': {
@@ -200,6 +281,7 @@ try {
                         fail('Заполните ФИО в учётной записи перед регистрацией обращения.', 422);
                     }
                     $id = $r->create($address, $fio, $phone, $subject, $type, $callAt, $operatorName, self_lat($in), self_lng($in));
+                    audit_log('create', 'appeal', $id, null, $r->find($id));
                     json_response(['ok' => true, 'data' => ['id' => $id]], 201);
                 }
 
@@ -216,16 +298,24 @@ try {
                     $status = in_array($type, ['information', 'false_call'], true)
                         ? 'completed'
                         : (string)$existing['status'];
-                    $r->update($id, $address, $fio, $phone, $subject, $type, $status, $callAt, self_lat($in), self_lng($in));
+                    $r->update($id, $address, $fio, $phone, $subject, $type, $status, $callAt, self_lat($in), self_lng($in), (string)$apiUser['full_name']);
+                    audit_log('update', 'appeal', $id, $existing, $r->find($id));
                     json_response(['ok' => true]);
                 }
 
                 case 'delete':
-                    $r->delete((int)($in['id'] ?? 0));
+                    api_admin_only($apiUser);
+                    $deleteId = (int)($in['id'] ?? 0);
+                    $before = $r->find($deleteId);
+                    $r->delete($deleteId);
+                    audit_log('delete', 'appeal', $deleteId, $before, null);
                     json_response(['ok' => true]);
 
                 case 'set_status':
-                    $r->setStatus((int)($in['id'] ?? 0), (string)($in['status'] ?? ''));
+                    $statusId = (int)($in['id'] ?? 0);
+                    $before = $r->find($statusId);
+                    $r->setStatus($statusId, (string)($in['status'] ?? ''), (string)$apiUser['full_name']);
+                    audit_log('close', 'appeal', $statusId, $before, $r->find($statusId));
                     json_response(['ok' => true]);
 
                 default:
@@ -255,6 +345,29 @@ function self_lng(array $in): ?float
 {
     $v = $in['lng'] ?? null;
     return is_numeric($v) ? (float)$v : null;
+}
+
+function api_admin_only(array $user): void
+{
+    if (($user['role'] ?? '') !== 'admin') fail('Операция доступна только администратору.', 403);
+}
+
+function api_datetime_filter($value): ?string
+{
+    if ($value === null || trim((string)$value) === '') return null;
+    return self_required_datetime($value, 'Укажите дату и время фильтра корректно.');
+}
+
+function api_datetime_end_filter($value): ?string
+{
+    $datetime = api_datetime_filter($value);
+    if ($datetime === null) return null;
+    return substr($datetime, 0, 16) . ':59';
+}
+
+function api_required_filter($value): string
+{
+    return self_required_datetime($value, 'Для удаления обязательно укажите начало и конец периода.');
 }
 
 /** 'YYYY-MM-DDTHH:MM' / 'YYYY-MM-DD' → 'Y-m-d H:i' | null */

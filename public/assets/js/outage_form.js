@@ -2,29 +2,26 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   const id = Number($('#of-id').value);
-  loadHouses(id);
+  loadOutage(id);
   $('#outage-form').addEventListener('submit', submitOutage);
+  $('#of-type').addEventListener('change', updateDetailVisibility);
   $('#of-toggle').addEventListener('click', toggleOutage);
-  $('#of-delete').addEventListener('click', deleteOutage);
+  if ($('#of-delete')) $('#of-delete').addEventListener('click', deleteOutage);
 });
 
-async function loadHouses(editingId) {
+async function loadOutage(editingId) {
   try {
-    const [housesResult, outageResult] = await Promise.all([
-      api({ action: 'houses', op: 'list' }),
-      editingId ? api({ action: 'outages', op: 'get', id: editingId }) : Promise.resolve(null),
-    ]);
-    const houses = housesResult.data;
-    const select = $('#of-house');
-    select.innerHTML = '<option value="">Выберите адрес</option>' + houses
-      .map((house) => `<option value="${house.id}">${esc(house.address)}</option>`).join('');
-    if (editingId && outageResult) {
-      const outage = outageResult.data;
+    if (editingId) {
+      const outage = (await api({ action: 'outages', op: 'get', id: editingId })).data;
       $('#of-form-title').textContent = `Изменить отключение #${editingId}`;
       $('.topbar-title').textContent = `Изменить отключение #${editingId}`;
       document.title = `Изменить отключение #${editingId} · Реестр отключений`;
-      select.value = String(outage.house_id);
-      document.querySelector(`input[name="of-type"][value="${outage.type}"]`).checked = true;
+      $('#of-address').value = outage.address || '';
+      $('#of-type').value = outage.type || 'shutdown';
+      $('#of-detail-type').value = outage.detail_type || 'full_shutdown';
+      updateDetailVisibility();
+      $('#of-address-wrap .sg-lat').value = outage.lat ?? '';
+      $('#of-address-wrap .sg-lng').value = outage.lng ?? '';
       $('#of-reason').value = outage.reason || '';
       $('#of-planned-start').value = outage.planned_start ? outage.planned_start.replace(' ', 'T').slice(0, 16) : '';
       $('#of-actual-start').value = outage.actual_start ? outage.actual_start.replace(' ', 'T').slice(0, 16) : '';
@@ -33,25 +30,34 @@ async function loadHouses(editingId) {
       $('#of-toggle').hidden = false;
       $('#of-toggle').dataset.active = Number(outage.is_active) === 1 ? '1' : '0';
       $('#of-toggle').textContent = Number(outage.is_active) === 1 ? 'Восстановить' : 'Снова отключить';
-      $('#of-delete').hidden = false;
+      if ($('#of-delete')) $('#of-delete').hidden = false;
     }
   } catch (error) {
-    $('#of-house').innerHTML = `<option value="">${esc(error.message)}</option>`;
     toast(error.message, 'err');
   }
 }
 
+function updateDetailVisibility() {
+  const isImprovement = $('#of-type').value === 'improvement';
+  $('#of-detail-field').hidden = isImprovement;
+  $('#of-detail-type').disabled = isImprovement;
+}
+
 async function submitOutage(event) {
   event.preventDefault();
-  const houseId = $('#of-house').value;
-  if (!houseId) {
-    toast('Выберите адрес дома из реестра.', 'err');
+  const address = $('#of-address').value.trim();
+  if (address.length < 5) {
+    toast('Укажите адрес длиной не менее 5 символов.', 'err');
     return;
   }
   const id = Number($('#of-id').value);
+  const addressWrap = $('#of-address-wrap');
   const body = {
-    house_id: Number(houseId),
-    type: document.querySelector('input[name="of-type"]:checked').value,
+    address,
+    lat: addressWrap.querySelector('.sg-lat').value,
+    lng: addressWrap.querySelector('.sg-lng').value,
+    type: $('#of-type').value,
+    detail_type: $('#of-detail-type').value,
     reason: $('#of-reason').value.trim(),
     planned_start: $('#of-planned-start').value,
     actual_start: $('#of-actual-start').value,
@@ -79,9 +85,23 @@ async function toggleOutage() {
   if (!id) return;
   const isActive = $('#of-toggle').dataset.active === '1';
   try {
+    const makeImprovement = isActive && $('#of-type').value !== 'improvement'
+      && confirm('Начать благоустройство?');
     await api({ action: 'outages', op: 'update' }, {
       method: 'POST', body: { id, is_active: isActive ? 0 : 1 },
     });
+    if (makeImprovement) {
+      const wrap = $('#of-address-wrap');
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      await api({ action: 'outages', op: 'create' }, {
+        method: 'POST', body: {
+          address: $('#of-address').value.trim(), lat: wrap.querySelector('.sg-lat').value,
+          lng: wrap.querySelector('.sg-lng').value, type: 'improvement',
+          detail_type: 'full_shutdown', actual_start: now.toISOString().slice(0, 16), reason: '',
+        },
+      });
+    }
     location.href = (window.APP?.base || '') + '/outages.php';
   } catch (error) {
     toast(error.message, 'err');

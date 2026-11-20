@@ -1,6 +1,15 @@
 <?php
 require_once __DIR__ . '/../src/bootstrap.php';
 require_auth();
+$currentUser = auth_user();
+$isAdmin = ($currentUser['role'] ?? '') === 'admin';
+$from = export_filter((string)($_GET['from'] ?? ''));
+$to = export_filter((string)($_GET['to'] ?? ''));
+if ($to !== null) $to = substr($to, 0, 16) . ':59';
+if (!$isAdmin) {
+    $from = (new DateTimeImmutable('now'))->modify('-1 month')->format('Y-m-d H:i:s');
+    $to = (new DateTimeImmutable('now'))->format('Y-m-d H:i:s');
+}
 
 $type = (string)($_GET['type'] ?? '');
 $dateColumns = [];
@@ -12,7 +21,7 @@ if ($type === 'appeals') {
     $headers = ['ID', 'Дата и время звонка', 'ФИО оператора', 'Адрес', 'ФИО заявителя', 'Телефон', 'Состав обращения', 'Тип обращения', 'Статус', 'Создано', 'Изменено'];
     $dateColumns = [1, 9, 10];
     $numericColumns = [0];
-    $records = (new AppealRepository())->list();
+    $records = (new AppealRepository())->list(null, false, [], 'all', $from, $to);
     $rows = [$headers];
     foreach ($records as $record) {
         $rows[] = [
@@ -27,12 +36,12 @@ if ($type === 'appeals') {
     $headers = ['ID', 'Адрес', 'ID дома', 'Тип', 'Причина', 'Планируемое время отключения', 'Фактическое время отключения', 'Плановое восстановление', 'Статус', 'Создано'];
     $dateColumns = [5, 6, 7, 9];
     $numericColumns = [0, 2];
-    $records = (new OutageRepository())->list(null, 'all', 'all');
+    $records = (new OutageRepository())->list(null, 'all', 'all', $from, $to);
     $rows = [$headers];
     foreach ($records as $record) {
         $rows[] = [
             $record['id'], $record['address'], $record['house_id'],
-            $record['type'] === 'heating' ? 'Отопление' : 'ГВС', $record['reason'],
+            export_outage_type((string)$record['type']) . ' — ' . export_outage_detail((string)$record['detail_type']), $record['reason'],
             $record['planned_start'], $record['actual_start'], $record['planned_end'],
             (int)$record['is_active'] === 1 ? 'Активно' : 'Восстановлено', $record['created_at'],
         ];
@@ -49,6 +58,32 @@ header('Content-Length: ' . strlen($workbook));
 header('Cache-Control: private, no-store, max-age=0');
 echo $workbook;
 exit;
+
+function export_filter(string $value): ?string
+{
+    if ($value === '') return null;
+    $value = str_replace('T', ' ', trim($value));
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $value);
+    if ($date === false || $date->format('Y-m-d H:i') !== $value) {
+        http_response_code(400);
+        exit('Некорректный период экспорта.');
+    }
+    return $date->format('Y-m-d H:i:s');
+}
+
+function export_outage_type(string $type): string
+{
+    return ['shutdown' => 'Отключение', 'damage' => 'Повреждение', 'improvement' => 'Благоустройство'][$type] ?? $type;
+}
+
+function export_outage_detail(string $detail): string
+{
+    return [
+        'full_shutdown' => 'Полное отключение',
+        'supply_without_circulation' => 'Подача без циркуляции',
+        'damage_without_shutdown' => 'Повреждение без отключения',
+    ][$detail] ?? $detail;
+}
 
 /** Собирает минимальный XLSX/OOXML-пакет через стандартные функции PHP. */
 function create_xlsx(array $rows, array $dateColumns, array $numericColumns, string $sheetName): string

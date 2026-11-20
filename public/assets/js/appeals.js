@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
   reload();
   $('#ap-q').addEventListener('input', debounce(reload, 300));
   $('#ap-status-filter').addEventListener('change', reload);
+  $('#ap-from').addEventListener('change', reload);
+  $('#ap-to').addEventListener('change', reload);
   fields.forEach((field) => field.addEventListener('change', () => {
     updateFilterLabel();
     reload();
@@ -61,12 +63,24 @@ function reload() {
   const query = $('#ap-q').value.trim();
   const fields = selectedFields();
   const status = $('#ap-status-filter').value;
-  return api({ action: 'appeals', op: 'list', q: query, fields: fields.join(','), status })
+  const from = $('#ap-from').value;
+  const to = $('#ap-to').value;
+  updateExportLink(from, to);
+  return api({ action: 'appeals', op: 'list', q: query, fields: fields.join(','), status, from, to })
     .then((result) => {
       $('#ap-count').textContent = `записей: ${result.data.length}`;
       render(result.data, query);
     })
     .catch((error) => toast(error.message, 'err'));
+}
+
+function updateExportLink(from, to) {
+  const link = document.querySelector('.excel-export');
+  if (!link) return;
+  const params = new URLSearchParams({ type: 'appeals' });
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  link.href = (window.APP?.base || '') + '/export.php?' + params.toString();
 }
 
 function render(rows, query) {

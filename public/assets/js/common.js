@@ -111,7 +111,7 @@ async function loadBadges() {
     const b1 = $('#badge-outages');
     const b2 = $('#badge-calls');
     if (b1) { b1.textContent = d.outages;     b1.hidden = !d.outages; }
-    if (b2) { b2.textContent = d.calls_today; b2.hidden = !d.calls_today; }
+    if (b2) { b2.textContent = d.appeals_in_work; b2.hidden = !d.appeals_in_work; }
   } catch (_) { /* бейджи не критичны */ }
 }
 
@@ -129,13 +129,22 @@ class AddressSuggest {
     this.badge = this.wrap && this.wrap.querySelector('.sg-badge');
     this.items = [];
     this.idx   = -1;
-    if (!this.list || !window.APP || !window.APP.hasYandex) return;
+    if (!this.list) return;
 
     const run = debounce(async (q) => {
       if (!q || q.length < 3) { this.hide(); return; }
       try {
-        const result = await api({ action: 'geocode', q });
-        this.items = result.data;
+        const requests = [api({ action: 'houses', op: 'list', q })];
+        if (window.APP?.hasYandex) requests.push(api({ action: 'geocode', q }));
+        const [houses, geocoded] = await Promise.all(requests);
+        const localItems = (houses.data || []).map((house) => ({ text: house.address, lat: house.lat, lng: house.lng }));
+        const remoteItems = geocoded?.data || [];
+        const unique = new Map();
+        [...localItems, ...remoteItems].forEach((item) => {
+          const key = String(item.text).toLocaleLowerCase();
+          if (!unique.has(key)) unique.set(key, item);
+        });
+        this.items = Array.from(unique.values()).slice(0, 8);
         this.idx = -1;
         this.render();
       } catch (_) { this.hide(); }

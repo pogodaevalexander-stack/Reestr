@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS `houses` (
 CREATE TABLE IF NOT EXISTS `outages` (
   `id`            INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `house_id`      INT UNSIGNED NOT NULL,
-  `type`          ENUM('hot_water','heating') NOT NULL,
+  `type`          ENUM('shutdown','damage','improvement') NOT NULL DEFAULT 'shutdown',
+  `detail_type`   ENUM('full_shutdown','supply_without_circulation','damage_without_shutdown') NOT NULL DEFAULT 'full_shutdown',
   `planned_start` DATETIME NULL,
   `reason`        VARCHAR(255) NULL,
   `actual_start`  DATETIME NOT NULL,
@@ -71,11 +72,28 @@ CREATE TABLE IF NOT EXISTS `appeals` (
   `lng`           DECIMAL(10,7) NULL,
   `created_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `closed_at`     DATETIME NULL,
+  `closed_by`     VARCHAR(255) NULL,
   PRIMARY KEY (`id`),
   KEY `idx_call_at` (`call_at`),
   KEY `idx_appeal_status` (`status`),
   KEY `idx_appeal_type` (`type`),
   KEY `idx_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Журнал действий пользователей для административного аудита.
+CREATE TABLE IF NOT EXISTS `audit_log` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `actor_id` INT UNSIGNED NULL,
+  `actor_name` VARCHAR(255) NOT NULL DEFAULT '',
+  `action` VARCHAR(64) NOT NULL,
+  `entity` VARCHAR(32) NOT NULL,
+  `entity_id` BIGINT UNSIGNED NULL,
+  `details` JSON NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_audit_created` (`created_at`),
+  KEY `idx_audit_actor` (`actor_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 5. Миграция старых установок.
@@ -89,6 +107,7 @@ CREATE PROCEDURE `migrate_reestr_schema`()
 BEGIN
   DECLARE column_count INT DEFAULT 0;
   DECLARE index_count INT DEFAULT 0;
+  DECLARE old_type_count INT DEFAULT 0;
 
   -- Аккаунты: ФИО и роль добавлялись в разных версиях приложения.
   SELECT COUNT(*) INTO column_count FROM information_schema.COLUMNS
@@ -141,6 +160,33 @@ BEGIN
   END IF;
 
   -- Плановое начало отключения и сохранение фактического времени из старого start_at.
+  SELECT COUNT(*) INTO column_count FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'outages' AND COLUMN_NAME = 'type';
+  IF column_count > 0 THEN
+    ALTER TABLE `outages` MODIFY COLUMN `type` ENUM('hot_water','heating','shutdown','damage','improvement') NOT NULL DEFAULT 'shutdown';
+    UPDATE `outages` SET `type` = 'shutdown' WHERE `type` IN ('hot_water','heating');
+    ALTER TABLE `outages` MODIFY COLUMN `type` ENUM('shutdown','damage','improvement') NOT NULL DEFAULT 'shutdown';
+  END IF;
+
+  SELECT COUNT(*) INTO column_count FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'outages' AND COLUMN_NAME = 'detail_type';
+  IF column_count = 0 THEN
+    ALTER TABLE `outages` ADD COLUMN `detail_type` ENUM('full_shutdown','supply_without_circulation','damage_without_shutdown') NOT NULL DEFAULT 'full_shutdown' AFTER `type`;
+  END IF;
+
+  SELECT COUNT(*) INTO column_count FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'appeals' AND COLUMN_NAME = 'closed_at';
+  IF column_count = 0 THEN
+    ALTER TABLE `appeals` ADD COLUMN `closed_at` DATETIME NULL AFTER `updated_at`;
+  END IF;
+  SELECT COUNT(*) INTO column_count FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'appeals' AND COLUMN_NAME = 'closed_by';
+  IF column_count = 0 THEN
+    ALTER TABLE `appeals` ADD COLUMN `closed_by` VARCHAR(255) NULL AFTER `closed_at`;
+  END IF;
+  UPDATE `appeals` SET `closed_at` = `updated_at`, `closed_by` = `operator_name`
+    WHERE `status` = 'completed' AND `closed_at` IS NULL;
+
   SELECT COUNT(*) INTO column_count FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'outages' AND COLUMN_NAME = 'planned_start';
   IF column_count = 0 THEN

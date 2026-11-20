@@ -17,13 +17,22 @@ require __DIR__ . '/partials/head.php';
     <form class="form record-form" id="outage-form" novalidate>
       <label class="field">
         <span class="field-label">Адрес дома</span>
-        <select id="of-house" required><option value="">Загрузка адресов</option></select>
+        <div class="sg-wrap" id="of-address-wrap">
+          <input type="text" id="of-address" class="sg-input" placeholder="Введите адрес или выберите подсказку" autocomplete="off" required minlength="5">
+          <input type="hidden" class="sg-lat"><input type="hidden" class="sg-lng">
+          <span class="sg-badge" hidden>Яндекс</span><ul class="sg-list" hidden></ul>
+        </div>
       </label>
-      <fieldset class="field type-radio">
-        <span class="field-label">Тип отключения</span>
-        <label class="tr tr-hot"><input type="radio" name="of-type" value="hot_water" checked><span>Горячая вода (ГВС)</span></label>
-        <label class="tr tr-heat"><input type="radio" name="of-type" value="heating"><span>Отопление</span></label>
-      </fieldset>
+      <label class="field"><span class="field-label">Категория</span>
+        <select id="of-type" required><option value="shutdown">Отключение</option><option value="damage">Повреждение</option><option value="improvement">Благоустройство</option></select>
+      </label>
+      <label class="field" id="of-detail-field"><span class="field-label">Вид</span>
+        <select id="of-detail-type" required>
+          <option value="full_shutdown">Полное отключение</option>
+          <option value="supply_without_circulation">Подача без циркуляции</option>
+          <option value="damage_without_shutdown">Повреждение без отключения</option>
+        </select>
+      </label>
       <label class="field">
         <span class="field-label">Причина</span>
         <input type="text" id="of-reason" placeholder="Причина отключения">
@@ -43,7 +52,7 @@ require __DIR__ . '/partials/head.php';
       <div class="field-actions">
         <button type="submit" class="btn primary" id="of-save">Зарегистрировать</button>
         <button type="button" class="btn ghost" id="of-toggle" hidden></button>
-        <button type="button" class="btn danger" id="of-delete" hidden>Удалить отключение</button>
+        <?php if (($currentUser['role'] ?? '') === 'admin'): ?><button type="button" class="btn danger" id="of-delete" hidden>Удалить отключение</button><?php endif; ?>
         <a class="btn ghost" href="<?= BASE ?>/outages.php">Отмена</a>
       </div>
       <input type="hidden" id="of-id" value="<?= $editingId ?>">

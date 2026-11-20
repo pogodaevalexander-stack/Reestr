@@ -17,12 +17,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $action = (string)($_POST['action'] ?? '');
         if ($action === 'create') {
+          $login = trim((string)($_POST['login'] ?? ''));
+          $fullName = trim((string)($_POST['full_name'] ?? ''));
+          $role = (string)($_POST['role'] ?? 'operator');
             $repo->create(
-                trim((string)($_POST['login'] ?? '')),
-                trim((string)($_POST['full_name'] ?? '')),
+            $login,
+            $fullName,
                 (string)($_POST['password'] ?? ''),
-                (string)($_POST['role'] ?? 'operator')
+            $role
             );
+          $created = $repo->findByLogin($login);
+          audit_log('account_create', 'account', (int)($created['id'] ?? 0), null, ['login' => $login, 'full_name' => $fullName, 'role' => $role]);
             $notice = 'Учётная запись создана.';
         } elseif ($action === 'update') {
             $editValues = [
@@ -32,6 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'role' => (string)($_POST['role'] ?? ''),
                 'is_active' => isset($_POST['is_active']) && $_POST['is_active'] === '1',
             ];
+            $beforeAccount = null;
+            foreach ($repo->all() as $account) {
+              if ((int)$account['id'] === $editValues['id']) { $beforeAccount = $account; break; }
+            }
             $repo->update(
                 $editValues['id'],
                 $editValues['login'],
@@ -41,10 +50,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (string)($_POST['password'] ?? ''),
                 (int)$actor['id']
             );
+              audit_log('account_update', 'account', $editValues['id'], $beforeAccount, [
+                'login' => $editValues['login'], 'full_name' => $editValues['full_name'],
+                'role' => $editValues['role'], 'is_active' => $editValues['is_active'],
+              ]);
             $notice = 'Изменения сохранены.';
             $editValues = null;
         } elseif ($action === 'delete') {
-            $repo->delete((int)($_POST['id'] ?? 0), (int)$actor['id']);
+          $deleteId = (int)($_POST['id'] ?? 0);
+          $beforeAccount = null;
+          foreach ($repo->all() as $account) {
+            if ((int)$account['id'] === $deleteId) { $beforeAccount = $account; break; }
+          }
+          $repo->delete($deleteId, (int)$actor['id']);
+          audit_log('account_delete', 'account', $deleteId, $beforeAccount, null);
             $notice = 'Учётная запись удалена.';
         } else {
             throw new InvalidArgumentException('Неизвестное действие.');

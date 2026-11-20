@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       $('#ap-status-field').hidden = false;
       $('#ap-status').textContent = appealStatusText(appeal.status);
       $('#ap-close').hidden = appeal.status !== 'in_work';
-      $('#ap-delete').hidden = false;
+      if ($('#ap-delete')) $('#ap-delete').hidden = false;
       $('#ap-phone').value = appeal.phone;
       $('#ap-call-at').value = appeal.call_at ? appeal.call_at.replace(' ', 'T').slice(0, 16) : '';
       $('#ap-operator').value = appeal.operator_name || 'Не указан';
@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
   $('#ap-close').addEventListener('click', closeAppeal);
-  $('#ap-delete').addEventListener('click', deleteAppeal);
+  if ($('#ap-delete')) $('#ap-delete').addEventListener('click', deleteAppeal);
   $('#ap-form').addEventListener('submit', onSubmit);
   $('#ap-form').querySelectorAll('input[required], textarea[required], select[required]').forEach((input) => {
     const clearInvalid = () => {
