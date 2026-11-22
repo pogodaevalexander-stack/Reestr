@@ -77,7 +77,17 @@ $pageScript  = $pageScript ?? '';
         <span class="user-chip"><?= e($currentUser['full_name'] !== '' ? $currentUser['full_name'] : $currentUser['login']) ?> · <?= e($currentUser['login']) ?> · <?= ($currentUser['role'] ?? '') === 'admin' ? 'Администратор' : 'Оператор' ?></span>
         <a class="logout-link" href="<?= BASE ?>/logout.php">Выход</a>
       <?php endif; ?>
-      <span class="live"><i></i>онлайн</span>
+      <div class="refresh-controls" aria-label="Обновление страницы">
+        <label class="sr-only" for="auto-refresh">Автообновление страницы</label>
+        <select id="auto-refresh" title="Интервал автообновления">
+          <option value="0">Авто: выкл.</option>
+          <option value="30000">Авто: 30 сек.</option>
+          <option value="60000">Авто: 1 мин.</option>
+          <option value="300000">Авто: 5 мин.</option>
+          <option value="600000">Авто: 10 мин.</option>
+        </select>
+        <button type="button" class="btn ghost sm" id="refresh-now" title="Обновить страницу сейчас">Обновить</button>
+      </div>
       <time class="clock mono" id="clock">--:--:--</time>
     </div>
   </header>

@@ -26,8 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function bindToolbar() {
   $('#ot-q').addEventListener('input', debounce(reloadOutages, 300));
-  $('#ot-from').addEventListener('change', reloadOutages);
-  $('#ot-to').addEventListener('change', reloadOutages);
+  $('#ot-from').addEventListener('change', () => { updateFilterLabel(); reloadOutages(); });
+  $('#ot-to').addEventListener('change', () => { updateFilterLabel(); reloadOutages(); });
 }
 
 function bindFilterPopup() {
@@ -67,6 +67,8 @@ function bindFilterPopup() {
     const activeCount = [
       popup.querySelector('input[name="ot-type"]:checked').value !== 'all',
       popup.querySelector('input[name="ot-status"]:checked').value !== 'all',
+      Boolean($('#ot-from').value),
+      Boolean($('#ot-to').value),
     ].filter(Boolean).length;
     toggle.querySelector('span').textContent = activeCount ? `Фильтр: ${activeCount}` : 'Фильтр';
   }
@@ -90,7 +92,7 @@ function reloadOutages() {
 function renderOutages(rows) {
   const tbody = $('#ot-table tbody');
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty">Отключения не найдены.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="empty">Отключения не найдены.</td></tr>';
     return;
   }
   tbody.innerHTML = rows.map((outage) => `
@@ -99,9 +101,12 @@ function renderOutages(rows) {
       <td class="td-addr">${hl(outage.address, state.q)}</td>
       <td><span class="pill ${outage.type === 'damage' ? 'heat' : 'hot'}">${TYPE[outage.type] || esc(outage.type)}</span><br><small>${DETAIL[outage.detail_type] || ''}</small></td>
       <td>${outage.reason ? hl(outage.reason, state.q) : '—'}</td>
-      <td class="mono sm">${outage.planned_start ? fmtDT(outage.planned_start) : '—'}</td>
-      <td class="mono sm">${fmtDT(outage.actual_start)}</td>
-      <td class="mono sm">${outage.planned_end ? fmtDT(outage.planned_end) : '—'}</td>
+      <td class="mono sm">${Number(outage.mkd_count || 0)}</td>
+      <td class="mono sm">${Number(outage.social_count || 0)}</td>
+      <td>${esc(outage.operator_name || '—')}</td>
+      <td class="mono sm">${outage.type !== 'improvement' && outage.planned_start ? fmtDT(outage.planned_start) : '—'}</td>
+      <td class="mono sm">${outage.type !== 'improvement' ? fmtDT(outage.actual_start) : '—'}</td>
+      <td class="mono sm">${outage.type !== 'improvement' && outage.planned_end ? fmtDT(outage.planned_end) : '—'}</td>
       <td>${outage.is_active ? 'Активно' : 'Восстановлено'}</td>
       <td class="td-act">
         <button class="btn ghost sm act-toggle" data-id="${outage.id}">${outage.is_active ? 'Восстановить' : 'Снова отключить'}</button>

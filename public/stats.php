@@ -9,9 +9,19 @@ require __DIR__ . '/partials/head.php';
 <div class="page-grid">
   <section class="panel span-12">
     <div class="panel-head slim"><div><h2 class="panel-title">Работа операторов</h2><p class="panel-sub">Количество принятых и закрытых обращений за период</p></div></div>
-    <div class="toolbar">
-      <label class="field period-filter"><span class="field-label">С</span><input type="datetime-local" id="st-from"></label>
-      <label class="field period-filter"><span class="field-label">По</span><input type="datetime-local" id="st-to"></label>
+    <div class="toolbar filter-toolbar">
+      <label class="search toolbar-search">
+        <input type="search" id="st-q" placeholder="Поиск оператора" aria-label="Поиск оператора">
+      </label>
+      <div class="filter-picker" id="st-filter-picker">
+        <button type="button" class="btn ghost filter-trigger" id="st-filter-toggle" aria-expanded="false" aria-controls="st-filter-popup"><span>Фильтр</span></button>
+        <div class="filter-popup stats-filter-popup" id="st-filter-popup" hidden>
+          <strong>Период статистики</strong>
+          <label class="filter-period"><span>С</span><input type="datetime-local" id="st-from"></label>
+          <label class="filter-period"><span>По</span><input type="datetime-local" id="st-to"></label>
+          <button type="button" class="btn ghost sm" id="st-filter-reset">Сбросить фильтры</button>
+        </div>
+      </div>
     </div>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Оператор</th><th>Принято обращений</th><th>Закрыто обращений</th></tr></thead><tbody id="st-operators"><tr><td colspan="3" class="empty">Загружаем…</td></tr></tbody></table></div>
   </section>

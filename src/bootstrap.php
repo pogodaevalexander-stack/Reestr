@@ -292,6 +292,19 @@ function ensure_feature_schema(): void
         $pdo->exec("ALTER TABLE outages ADD COLUMN detail_type ENUM('full_shutdown','supply_without_circulation','damage_without_shutdown') NOT NULL DEFAULT 'full_shutdown' AFTER type");
     }
 
+    foreach ([
+        'mkd_count' => 'INT UNSIGNED NOT NULL DEFAULT 0',
+        'social_count' => 'INT UNSIGNED NOT NULL DEFAULT 0',
+        'operator_name' => "VARCHAR(255) NOT NULL DEFAULT ''",
+    ] as $column => $definition) {
+        if ($columnType('outages', $column) === null) {
+            $pdo->exec("ALTER TABLE outages ADD COLUMN `$column` $definition");
+        }
+    }
+    if ($columnType('appeals', 'operator_name') === null) {
+        $pdo->exec("ALTER TABLE appeals ADD COLUMN operator_name VARCHAR(255) NOT NULL DEFAULT '' AFTER call_at");
+    }
+
     $backfillClosed = false;
     if ($columnType('appeals', 'closed_at') === null) {
         $pdo->exec('ALTER TABLE appeals ADD COLUMN closed_at DATETIME NULL AFTER updated_at');

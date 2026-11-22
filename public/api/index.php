@@ -82,16 +82,57 @@ try {
             json_response(['ok' => true, 'data' => get_stats()]);
             break;
 
+        case 'monthly_stats': {
+            $monthStart = new DateTimeImmutable('first day of this month 00:00:00');
+            $nextMonth = $monthStart->modify('first day of next month');
+            $daysInMonth = (int)$monthStart->format('t');
+            $pdo = Database::pdo();
+            $appealsQuery = $pdo->prepare('SELECT DAY(call_at) AS day, COUNT(*) AS total FROM appeals WHERE call_at >= ? AND call_at < ? GROUP BY DAY(call_at)');
+            $appealsQuery->execute([$monthStart->format('Y-m-d H:i:s'), $nextMonth->format('Y-m-d H:i:s')]);
+            $outagesQuery = $pdo->prepare('SELECT DAY(created_at) AS day, COUNT(*) AS total FROM outages WHERE created_at >= ? AND created_at < ? GROUP BY DAY(created_at)');
+            $outagesQuery->execute([$monthStart->format('Y-m-d H:i:s'), $nextMonth->format('Y-m-d H:i:s')]);
+            $appeals = array_fill(1, $daysInMonth, 0);
+            $outages = array_fill(1, $daysInMonth, 0);
+            foreach ($appealsQuery->fetchAll() as $row) $appeals[(int)$row['day']] = (int)$row['total'];
+            foreach ($outagesQuery->fetchAll() as $row) $outages[(int)$row['day']] = (int)$row['total'];
+            $data = [];
+            for ($day = 1; $day <= $daysInMonth; $day++) {
+                $data[] = ['day' => $day, 'appeals' => $appeals[$day], 'outages' => $outages[$day]];
+            }
+            json_response(['ok' => true, 'data' => ['month' => $monthStart->format('Y-m'), 'days' => $data]]);
+        }
+
         case 'operator_stats':
             $from = api_datetime_filter($_GET['from'] ?? null);
             $to = api_datetime_end_filter($_GET['to'] ?? null);
             $stats = (new AppealRepository())->operatorStats($from, $to);
             json_response(['ok' => true, 'data' => $stats]);
 
-        case 'audit':
+        case 'audit': {
             api_admin_only($apiUser);
-            $st = Database::pdo()->query('SELECT id, actor_name, action, entity, entity_id, details, created_at FROM audit_log ORDER BY id DESC');
-            json_response(['ok' => true, 'data' => $st->fetchAll()]);
+            $from = api_datetime_filter($_GET['from'] ?? null);
+            $to = api_datetime_end_filter($_GET['to'] ?? null);
+            $actor = trim((string)($_GET['actor'] ?? ''));
+            $filterAction = trim((string)($_GET['filter_action'] ?? ''));
+            $entity = trim((string)($_GET['entity'] ?? ''));
+            $conditions = [];
+            $args = [];
+            if ($from !== null) { $conditions[] = 'created_at >= ?'; $args[] = $from; }
+            if ($to !== null) { $conditions[] = 'created_at <= ?'; $args[] = $to; }
+            if ($actor !== '') { $conditions[] = 'actor_name = ?'; $args[] = $actor; }
+            if ($filterAction !== '') { $conditions[] = 'action = ?'; $args[] = $filterAction; }
+            if ($entity !== '') { $conditions[] = 'entity = ?'; $args[] = $entity; }
+            $where = $conditions ? ' WHERE ' . implode(' AND ', $conditions) : '';
+            $st = Database::pdo()->prepare('SELECT id, actor_name, action, entity, entity_id, details, created_at FROM audit_log' . $where . ' ORDER BY id DESC LIMIT 5000');
+            $st->execute($args);
+            $pdo = Database::pdo();
+            $filters = [
+                'actors' => $pdo->query("SELECT DISTINCT actor_name FROM audit_log WHERE actor_name <> '' ORDER BY actor_name")->fetchAll(PDO::FETCH_COLUMN),
+                'actions' => $pdo->query("SELECT DISTINCT action FROM audit_log WHERE action <> '' ORDER BY action")->fetchAll(PDO::FETCH_COLUMN),
+                'entities' => $pdo->query("SELECT DISTINCT entity FROM audit_log WHERE entity <> '' ORDER BY entity")->fetchAll(PDO::FETCH_COLUMN),
+            ];
+            json_response(['ok' => true, 'data' => $st->fetchAll(), 'filters' => $filters]);
+        }
 
         case 'delete_period': {
             api_admin_only($apiUser);
@@ -183,12 +224,27 @@ try {
                     $type    = (string)($in['type'] ?? '');
                     $detailType = (string)($in['detail_type'] ?? 'full_shutdown');
                     $reason  = trim((string)($in['reason'] ?? ''));
-                    $plannedStart = self_datetime($in['planned_start'] ?? null);
-                    $actualStart = self_required_datetime($in['actual_start'] ?? null, 'Укажите фактическое время отключения.');
-                    $planned = self_datetime($in['planned_end'] ?? null);
+                    $plannedStart = $type === 'improvement' ? null : self_datetime($in['planned_start'] ?? null);
+                    $actualStart = $type === 'improvement'
+                        ? (self_datetime($in['actual_start'] ?? null) ?? date('Y-m-d H:i:s'))
+                        : self_required_datetime($in['actual_start'] ?? null, 'Укажите фактическое время отключения.');
+                    $planned = $type === 'improvement' ? null : self_datetime($in['planned_end'] ?? null);
+                    $mkdCount = filter_var($in['mkd_count'] ?? null, FILTER_VALIDATE_INT);
+                    $socialCount = filter_var($in['social_count'] ?? null, FILTER_VALIDATE_INT);
 
                     if (!OutageRepository::validType($type)) fail('Выберите категорию отключения.');
                     if (!OutageRepository::validDetail($detailType)) fail('Выберите вид отключения.');
+                    if ($type !== 'improvement' && (!array_key_exists('mkd_count', $in) || !array_key_exists('social_count', $in)
+                        || $mkdCount === false || $socialCount === false || $mkdCount < 0 || $socialCount < 0)) {
+                        fail('Укажите целое неотрицательное количество МКД и социального жилья.');
+                    }
+                    $operatorQuery = Database::pdo()->prepare('SELECT full_name, is_active FROM accounts WHERE id = ? LIMIT 1');
+                    $operatorQuery->execute([(int)$apiUser['id']]);
+                    $operator = $operatorQuery->fetch();
+                    $operatorName = trim((string)($operator['full_name'] ?? ''));
+                    if ($operator === false || (int)$operator['is_active'] !== 1 || $operatorName === '') {
+                        fail('Заполните ФИО в учётной записи перед регистрацией отключения.', 422);
+                    }
                     $houses = new HouseRepository();
                     if ($houseId > 0) {
                         $house = $houses->find($houseId);
@@ -197,7 +253,8 @@ try {
                         $houseId = $houses->findOrCreate($address, self_lat($in), self_lng($in));
                     }
 
-                    $id = $r->create($houseId, $type, $detailType, $plannedStart, $actualStart, $reason !== '' ? $reason : null, $planned);
+                    $id = $r->create($houseId, $type, $detailType, $plannedStart, $actualStart, $reason !== '' ? $reason : null, $planned,
+                        $type === 'improvement' ? 0 : (int)$mkdCount, $type === 'improvement' ? 0 : (int)$socialCount, $operatorName);
                     audit_log('create', 'outage', $id, null, $r->find($id));
                     json_response(['ok' => true, 'data' => ['id' => $id]], 201);
                 }
@@ -207,8 +264,21 @@ try {
                     if ($id <= 0) fail('Не указано ID отключения.');
                     if (isset($in['type']) && !OutageRepository::validType((string)$in['type'])) fail('Выберите категорию отключения.');
                     if (isset($in['detail_type']) && !OutageRepository::validDetail((string)$in['detail_type'])) fail('Выберите вид отключения.');
+                    foreach (['mkd_count', 'social_count'] as $countField) {
+                        if (array_key_exists($countField, $in)) {
+                            $count = filter_var($in[$countField], FILTER_VALIDATE_INT);
+                            if ($count === false || $count < 0) fail('Количество домов должно быть целым неотрицательным числом.');
+                            $in[$countField] = $count;
+                        }
+                    }
                     $before = $r->find($id);
                     if ($before === null) fail('Отключение не найдено.', 404);
+                    if (($in['type'] ?? $before['type']) === 'improvement') {
+                        $in['planned_start'] = null;
+                        $in['planned_end'] = null;
+                        $in['mkd_count'] = 0;
+                        $in['social_count'] = 0;
+                    }
                     if (isset($in['address'])) {
                         $in['house_id'] = (new HouseRepository())->findOrCreate(trim((string)$in['address']), self_lat($in), self_lng($in));
                     }

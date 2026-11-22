@@ -41,16 +41,17 @@ require __DIR__ . '/partials/head.php';
             <label><input type="radio" name="ot-status" value="all" checked> Все статусы</label>
             <label><input type="radio" name="ot-status" value="active"> Активные</label>
             <label><input type="radio" name="ot-status" value="restored"> Восстановленные</label>
+            <span class="filter-group-title">Период фактического начала</span>
+            <label class="filter-period"><span>С</span><input type="datetime-local" id="ot-from"></label>
+            <label class="filter-period"><span>По</span><input type="datetime-local" id="ot-to"></label>
             <button type="button" class="btn ghost sm" id="ot-filter-reset">Сбросить фильтры</button>
           </div>
         </div>
       </div>
-      <label class="field period-filter"><span class="field-label">С</span><input type="datetime-local" id="ot-from"></label>
-      <label class="field period-filter"><span class="field-label">По</span><input type="datetime-local" id="ot-to"></label>
     </div>
     <div class="tbl-wrap">
       <table class="tbl" id="ot-table">
-        <thead><tr><th>ID</th><th>Адрес</th><th>Тип</th><th>Причина</th><th>План. начало</th><th>Факт. начало</th><th>План. конец</th><th>Статус</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>Адрес</th><th>Тип</th><th>Причина</th><th>МКД</th><th>Соц. жильё</th><th>Оператор</th><th>План. начало</th><th>Факт. начало</th><th>План. конец</th><th>Статус</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
     </div>

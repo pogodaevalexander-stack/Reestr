@@ -30,7 +30,7 @@ require __DIR__ . '/partials/head.php';
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6.5 7.5v5l-3 1.5v-6.5L4 5Z"/></svg>
             <span>Фильтр</span>
           </button>
-          <div class="filter-popup" id="ap-filter-popup" hidden>
+          <div class="filter-popup appeal-filter-popup" id="ap-filter-popup" hidden>
             <strong>Искать по полям</strong>
             <label><input type="checkbox" value="id" data-search-field> ID</label>
             <label><input type="checkbox" value="address" data-search-field> Адрес</label>
@@ -42,6 +42,9 @@ require __DIR__ . '/partials/head.php';
             <label><input type="checkbox" value="operator_name" data-search-field> Оператор</label>
             <label><input type="checkbox" value="created_at" data-search-field> Дата создания</label>
             <label><input type="checkbox" value="updated_at" data-search-field> Дата изменения</label>
+            <span class="filter-group-title">Период звонка</span>
+            <label class="filter-period"><span>С</span><input type="datetime-local" id="ap-from"></label>
+            <label class="filter-period"><span>По</span><input type="datetime-local" id="ap-to"></label>
             <button type="button" class="btn ghost sm" id="ap-filter-reset">Сбросить выбор</button>
           </div>
         </div>
@@ -54,8 +57,6 @@ require __DIR__ . '/partials/head.php';
             <option value="completed">Завершено</option>
           </select>
         </label>
-        <label class="field period-filter"><span class="field-label">С</span><input type="datetime-local" id="ap-from"></label>
-        <label class="field period-filter"><span class="field-label">По</span><input type="datetime-local" id="ap-to"></label>
     </div>
     <div class="tbl-wrap">
       <table class="tbl" id="ap-table">

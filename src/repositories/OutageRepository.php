@@ -87,12 +87,12 @@ final class OutageRepository
         return $row === false ? null : $row;
     }
 
-    public function create(int $houseId, string $type, string $detailType, ?string $plannedStart, string $actualStart, ?string $reason, ?string $plannedEnd): int
+    public function create(int $houseId, string $type, string $detailType, ?string $plannedStart, string $actualStart, ?string $reason, ?string $plannedEnd, int $mkdCount, int $socialCount, string $operatorName): int
     {
         $st = $this->db->prepare(
-            'INSERT INTO outages (house_id, type, detail_type, planned_start, actual_start, reason, planned_end) VALUES (?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO outages (house_id, type, detail_type, planned_start, actual_start, reason, planned_end, mkd_count, social_count, operator_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
-        $st->execute([$houseId, $type, $detailType, $plannedStart, $actualStart, $reason, $plannedEnd]);
+        $st->execute([$houseId, $type, $detailType, $plannedStart, $actualStart, $reason, $plannedEnd, $mkdCount, $socialCount, $operatorName]);
         return (int)$this->db->lastInsertId();
     }
 
@@ -110,6 +110,8 @@ final class OutageRepository
         if (array_key_exists('planned_start', $in)) { $set[] = 'planned_start = ?'; $args[] = $in['planned_start'] !== '' ? $in['planned_start'] : null; }
         if (array_key_exists('actual_start', $in))  { $set[] = 'actual_start = ?'; $args[] = $in['actual_start']; }
         if (array_key_exists('planned_end', $in))   { $set[] = 'planned_end = ?'; $args[] = $in['planned_end'] !== '' ? $in['planned_end'] : null; }
+        if (array_key_exists('mkd_count', $in))     { $set[] = 'mkd_count = ?'; $args[] = (int)$in['mkd_count']; }
+        if (array_key_exists('social_count', $in))  { $set[] = 'social_count = ?'; $args[] = (int)$in['social_count']; }
         if (array_key_exists('is_active', $in))     { $set[] = 'is_active = ?';   $args[] = (int)(bool)$in['is_active']; }
 
         if (!$set) {
