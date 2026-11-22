@@ -1,5 +1,5 @@
 /* ============================================================
-   Реестр · Главная: статистика, карта, звонки за день
+  Реестр · Главная: статистика, карта и месячные графики
    ============================================================ */
 'use strict';
 
@@ -10,12 +10,15 @@ const TYPE = {
 };
 const CALL_COLOR = '#0e9d8c';
 
-const state = { map: null };
+const state = { map: null, monthlyStats: null };
 
 document.addEventListener('DOMContentLoaded', () => {
   loadStats();
-  loadToday();
+  loadMonthlyCharts();
   initMap();
+  window.addEventListener('resize', debounce(() => {
+    if (state.monthlyStats) renderMonthlyCharts(state.monthlyStats);
+  }, 120));
 });
 
 /* ---------- статистика ---------- */
@@ -29,28 +32,65 @@ async function loadStats() {
   } catch (e) { toast(e.message, 'err'); }
 }
 
-/* ---------- звонки за день ---------- */
-async function loadToday() {
-  const box = $('#today-list');
+/* ---------- месячные графики ---------- */
+async function loadMonthlyCharts() {
   try {
-    const d = (await api({ action: 'appeals', op: 'list', today: '1' })).data
-      .sort((a, b) => {
-        const statusOrder = (a.status === 'completed' ? 1 : 0) - (b.status === 'completed' ? 1 : 0);
-        if (statusOrder !== 0) return statusOrder;
-        return new Date(b.call_at.replace(' ', 'T')) - new Date(a.call_at.replace(' ', 'T'));
-      });
-    $('#today-note').textContent = `звонков за день: ${d.length}`;
-    if (!d.length) { box.innerHTML = '<li class="empty">Сегодня звонков не было.</li>'; return; }
-    box.innerHTML = d.slice(0, 10).map((a) => `
-      <li class="call">
-        <div class="call-top">
-          <b>${esc(a.fio)}</b>
-          <time class="mono">${new Date(a.call_at.replace(' ', 'T')).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</time>
-        </div>
-        <div class="call-addr">${esc(a.address)}</div>
-        <div class="call-phone mono">${esc(a.phone)} · <span class="idchip mono">#${a.id}</span></div>
-      </li>`).join('');
-  } catch (e) { box.innerHTML = `<li class="empty">${esc(e.message)}</li>`; }
+    const data = (await api({ action: 'monthly_stats' })).data;
+    state.monthlyStats = data;
+    renderMonthlyCharts(data);
+  } catch (error) {
+    $('#appeals-chart-total').textContent = error.message;
+    $('#outages-chart-total').textContent = error.message;
+  }
+}
+
+function renderMonthlyCharts(data) {
+  const month = new Date(`${data.month}-01T00:00:00`).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+  const appealsTotal = data.days.reduce((sum, row) => sum + row.appeals, 0);
+  const outagesTotal = data.days.reduce((sum, row) => sum + row.outages, 0);
+  $('#appeals-chart-total').textContent = `${month} · всего: ${appealsTotal}`;
+  $('#outages-chart-total').textContent = `${month} · всего: ${outagesTotal}`;
+  drawMonthlyChart($('#appeals-month-chart'), data.days, 'appeals', '#0e9d8c');
+  drawMonthlyChart($('#outages-month-chart'), data.days, 'outages', '#e2483d');
+}
+
+function drawMonthlyChart(canvas, rows, key, color) {
+  const ratio = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  if (!width || !height) return;
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  const context = canvas.getContext('2d');
+  context.scale(ratio, ratio);
+  const pad = { top: 12, right: 12, bottom: 28, left: 34 };
+  const plotWidth = width - pad.left - pad.right;
+  const plotHeight = height - pad.top - pad.bottom;
+  const max = Math.max(1, ...rows.map((row) => row[key]));
+  context.font = '11px Golos Text, sans-serif';
+  context.textAlign = 'right';
+  context.textBaseline = 'middle';
+  for (let tick = 0; tick <= 4; tick++) {
+    const value = Math.ceil(max * (4 - tick) / 4);
+    const y = pad.top + plotHeight * tick / 4;
+    context.strokeStyle = '#e8edf3';
+    context.beginPath(); context.moveTo(pad.left, y); context.lineTo(width - pad.right, y); context.stroke();
+    context.fillStyle = '#718096'; context.fillText(String(value), pad.left - 7, y);
+  }
+  const step = plotWidth / Math.max(1, rows.length - 1);
+  context.beginPath();
+  rows.forEach((row, index) => {
+    const x = pad.left + index * step;
+    const y = pad.top + plotHeight * (1 - row[key] / max);
+    if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
+  });
+  context.strokeStyle = color; context.lineWidth = 2.5; context.lineJoin = 'round'; context.stroke();
+  rows.forEach((row, index) => {
+    if (index % 5 !== 0 && index !== rows.length - 1) return;
+    const x = pad.left + index * step;
+    context.fillStyle = '#718096'; context.textAlign = 'center'; context.textBaseline = 'top';
+    context.fillText(String(row.day), x, height - pad.bottom + 8);
+  });
 }
 
 /* ---------- карта ---------- */

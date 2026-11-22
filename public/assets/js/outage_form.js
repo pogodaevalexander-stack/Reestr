@@ -23,6 +23,8 @@ async function loadOutage(editingId) {
       $('#of-address-wrap .sg-lat').value = outage.lat ?? '';
       $('#of-address-wrap .sg-lng').value = outage.lng ?? '';
       $('#of-reason').value = outage.reason || '';
+      $('#of-mkd-count').value = outage.mkd_count ?? '';
+      $('#of-social-count').value = outage.social_count ?? '';
       $('#of-planned-start').value = outage.planned_start ? outage.planned_start.replace(' ', 'T').slice(0, 16) : '';
       $('#of-actual-start').value = outage.actual_start ? outage.actual_start.replace(' ', 'T').slice(0, 16) : '';
       $('#of-planned-end').value = outage.planned_end ? outage.planned_end.replace(' ', 'T').slice(0, 16) : '';
@@ -41,6 +43,10 @@ function updateDetailVisibility() {
   const isImprovement = $('#of-type').value === 'improvement';
   $('#of-detail-field').hidden = isImprovement;
   $('#of-detail-type').disabled = isImprovement;
+  ['of-planned-start-field', 'of-actual-start-field', 'of-planned-end-field', 'of-mkd-field', 'of-social-field']
+    .forEach((id) => { $('#' + id).hidden = isImprovement; });
+  $('#of-mkd-count').required = !isImprovement;
+  $('#of-social-count').required = !isImprovement;
 }
 
 async function submitOutage(event) {
@@ -59,14 +65,25 @@ async function submitOutage(event) {
     type: $('#of-type').value,
     detail_type: $('#of-detail-type').value,
     reason: $('#of-reason').value.trim(),
-    planned_start: $('#of-planned-start').value,
-    actual_start: $('#of-actual-start').value,
-    planned_end: $('#of-planned-end').value,
+    mkd_count: $('#of-mkd-count').value.trim(),
+    social_count: $('#of-social-count').value.trim(),
   };
-  if (!body.actual_start) {
-    $('#of-actual-start').closest('.field').classList.add('is-invalid');
-    $('#of-actual-start').focus();
-    return;
+  if ($('#of-type').value !== 'improvement') {
+    body.planned_start = $('#of-planned-start').value;
+    body.actual_start = $('#of-actual-start').value;
+    body.planned_end = $('#of-planned-end').value;
+  }
+  if ($('#of-type').value !== 'improvement') {
+    if (!body.actual_start) {
+      $('#of-actual-start').closest('.field').classList.add('is-invalid');
+      $('#of-actual-start').focus();
+      return;
+    }
+    const mkd = $('#of-mkd-count');
+    const social = $('#of-social-count');
+    const validCount = (value) => value.trim() !== '' && Number.isInteger(Number(value)) && Number(value) >= 0;
+    if (!validCount(mkd.value)) { mkd.focus(); toast('Укажите количество МКД целым неотрицательным числом.', 'err'); return; }
+    if (!validCount(social.value)) { social.focus(); toast('Укажите количество объектов социального жилья целым неотрицательным числом.', 'err'); return; }
   }
   try {
     const result = await api({ action: 'outages', op: id ? 'update' : 'create' }, {

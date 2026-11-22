@@ -47,6 +47,9 @@ CREATE TABLE IF NOT EXISTS `outages` (
   `reason`        VARCHAR(255) NULL,
   `actual_start`  DATETIME NOT NULL,
   `planned_end`   DATETIME NULL,
+  `mkd_count`     INT UNSIGNED NOT NULL DEFAULT 0,
+  `social_count`  INT UNSIGNED NOT NULL DEFAULT 0,
+  `operator_name` VARCHAR(255) NOT NULL DEFAULT '',
   `is_active`     TINYINT(1) NOT NULL DEFAULT 1,
   `created_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -172,6 +175,22 @@ BEGIN
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'outages' AND COLUMN_NAME = 'detail_type';
   IF column_count = 0 THEN
     ALTER TABLE `outages` ADD COLUMN `detail_type` ENUM('full_shutdown','supply_without_circulation','damage_without_shutdown') NOT NULL DEFAULT 'full_shutdown' AFTER `type`;
+  END IF;
+
+  SELECT COUNT(*) INTO column_count FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'outages' AND COLUMN_NAME = 'mkd_count';
+  IF column_count = 0 THEN
+    ALTER TABLE `outages` ADD COLUMN `mkd_count` INT UNSIGNED NOT NULL DEFAULT 0;
+  END IF;
+  SELECT COUNT(*) INTO column_count FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'outages' AND COLUMN_NAME = 'social_count';
+  IF column_count = 0 THEN
+    ALTER TABLE `outages` ADD COLUMN `social_count` INT UNSIGNED NOT NULL DEFAULT 0;
+  END IF;
+  SELECT COUNT(*) INTO column_count FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'outages' AND COLUMN_NAME = 'operator_name';
+  IF column_count = 0 THEN
+    ALTER TABLE `outages` ADD COLUMN `operator_name` VARCHAR(255) NOT NULL DEFAULT '';
   END IF;
 
   SELECT COUNT(*) INTO column_count FROM information_schema.COLUMNS

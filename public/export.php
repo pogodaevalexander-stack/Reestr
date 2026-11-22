@@ -18,7 +18,7 @@ $numericColumns = [];
 if ($type === 'appeals') {
     $sheetName = 'Обращения';
     $filename = 'appeals_' . date('Ymd_His') . '.xlsx';
-    $headers = ['ID', 'Дата и время звонка', 'ФИО оператора', 'Адрес', 'ФИО заявителя', 'Телефон', 'Состав обращения', 'Тип обращения', 'Статус', 'Создано', 'Изменено'];
+    $headers = ['ID', 'Дата и время звонка', 'ФИО оператора, зарегистрировавшего обращение', 'Адрес', 'ФИО заявителя', 'Телефон', 'Состав обращения', 'Тип обращения', 'Статус', 'Создано', 'Изменено'];
     $dateColumns = [1, 9, 10];
     $numericColumns = [0];
     $records = (new AppealRepository())->list(null, false, [], 'all', $from, $to);
@@ -33,16 +33,19 @@ if ($type === 'appeals') {
 } elseif ($type === 'outages') {
     $sheetName = 'Отключения';
     $filename = 'outages_' . date('Ymd_His') . '.xlsx';
-    $headers = ['ID', 'Адрес', 'ID дома', 'Тип', 'Причина', 'Планируемое время отключения', 'Фактическое время отключения', 'Плановое восстановление', 'Статус', 'Создано'];
-    $dateColumns = [5, 6, 7, 9];
-    $numericColumns = [0, 2];
+    $headers = ['ID', 'Адрес', 'ID дома', 'Тип / вид', 'Причина', 'Планируемое начало', 'Фактическое начало', 'Плановое восстановление', 'МКД, шт.', 'Социальное жильё, шт.', 'ФИО оператора, зарегистрировавшего отключение', 'Статус', 'Дата регистрации'];
+    $dateColumns = [5, 6, 7, 12];
+    $numericColumns = [0, 2, 8, 9];
     $records = (new OutageRepository())->list(null, 'all', 'all', $from, $to);
     $rows = [$headers];
     foreach ($records as $record) {
         $rows[] = [
             $record['id'], $record['address'], $record['house_id'],
             export_outage_type((string)$record['type']) . ' — ' . export_outage_detail((string)$record['detail_type']), $record['reason'],
-            $record['planned_start'], $record['actual_start'], $record['planned_end'],
+            $record['type'] === 'improvement' ? null : $record['planned_start'],
+            $record['type'] === 'improvement' ? null : $record['actual_start'],
+            $record['type'] === 'improvement' ? null : $record['planned_end'],
+            (int)($record['mkd_count'] ?? 0), (int)($record['social_count'] ?? 0), $record['operator_name'] ?? '',
             (int)$record['is_active'] === 1 ? 'Активно' : 'Восстановлено', $record['created_at'],
         ];
     }

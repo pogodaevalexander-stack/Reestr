@@ -33,19 +33,27 @@ require __DIR__ . '/partials/head.php';
           <option value="damage_without_shutdown">Повреждение без отключения</option>
         </select>
       </label>
+      <label class="field" id="of-mkd-field">
+        <span class="field-label">Количество МКД</span>
+        <input type="number" id="of-mkd-count" min="0" step="1" required>
+      </label>
+      <label class="field" id="of-social-field">
+        <span class="field-label">Количество объектов соц. жилья</span>
+        <input type="number" id="of-social-count" min="0" step="1" required>
+      </label>
       <label class="field">
         <span class="field-label">Причина</span>
         <input type="text" id="of-reason" placeholder="Причина отключения">
       </label>
-      <label class="field">
+      <label class="field" id="of-planned-start-field">
         <span class="field-label">Планируемое время отключения</span>
         <input type="datetime-local" id="of-planned-start">
       </label>
-      <label class="field">
+      <label class="field" id="of-actual-start-field">
         <span class="field-label">Фактическое время отключения</span>
         <input type="datetime-local" id="of-actual-start" value="<?= e(date('Y-m-d\\TH:i')) ?>" required>
       </label>
-      <label class="field">
+      <label class="field" id="of-planned-end-field">
         <span class="field-label">Плановое восстановление</span>
         <input type="datetime-local" id="of-planned-end">
       </label>

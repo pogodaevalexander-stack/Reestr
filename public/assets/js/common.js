@@ -208,10 +208,30 @@ class AddressSuggest {
 
 document.addEventListener('DOMContentLoaded', () => {
   startClock();
+  setupPageRefresh();
   loadBadges();
   $$('.sg-input').forEach((el) => new AddressSuggest(el));
   $$('.excel-export').forEach((link) => link.addEventListener('click', saveExcelFile));
 });
+
+function setupPageRefresh() {
+  const select = $('#auto-refresh');
+  const button = $('#refresh-now');
+  if (!select || !button) return;
+  const key = 'reestr:auto-refresh-ms';
+  const saved = localStorage.getItem(key) || '0';
+  select.value = Array.from(select.options).some((option) => option.value === saved) ? saved : '0';
+  let timer = null;
+  const apply = () => {
+    if (timer) clearInterval(timer);
+    const interval = Number(select.value);
+    localStorage.setItem(key, String(interval));
+    if (interval > 0) timer = setInterval(() => window.location.reload(), interval);
+  };
+  select.addEventListener('change', apply);
+  button.addEventListener('click', () => window.location.reload());
+  apply();
+}
 
 async function saveExcelFile(event) {
   if (typeof window.showSaveFilePicker !== 'function') return;

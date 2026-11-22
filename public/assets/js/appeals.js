@@ -9,8 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
   reload();
   $('#ap-q').addEventListener('input', debounce(reload, 300));
   $('#ap-status-filter').addEventListener('change', reload);
-  $('#ap-from').addEventListener('change', reload);
-  $('#ap-to').addEventListener('change', reload);
+  $('#ap-from').addEventListener('change', () => { updateFilterLabel(); reload(); });
+  $('#ap-to').addEventListener('change', () => { updateFilterLabel(); reload(); });
   fields.forEach((field) => field.addEventListener('change', () => {
     updateFilterLabel();
     reload();
@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#ap-filter-reset').addEventListener('click', () => {
     fields.forEach((field) => { field.checked = false; });
     $('#ap-q').value = '';
+    $('#ap-from').value = '';
+    $('#ap-to').value = '';
     updateFilterLabel();
     reload();
   });
@@ -50,7 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
     toggle.setAttribute('aria-expanded', 'false');
   }
   function updateFilterLabel() {
-    const count = fields.filter((field) => field.checked).length;
+    const count = fields.filter((field) => field.checked).length
+      + [$('#ap-from').value, $('#ap-to').value].filter(Boolean).length;
     toggle.querySelector('span').textContent = count ? `Фильтр: ${count}` : 'Фильтр';
   }
 });
