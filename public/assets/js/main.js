@@ -4,20 +4,29 @@
 'use strict';
 
 const TYPE = {
-  shutdown: { label: 'Отключение', color: '#f59f0a' },
-  damage: { label: 'Повреждение', color: '#e2483d' },
-  improvement: { label: 'Благоустройство', color: '#0e9d8c' },
+  shutdown: { label: 'Отключение', color: '#d71920' },
+  damage: { label: 'Повреждение', color: '#111111' },
+  improvement: { label: 'Благоустройство', color: '#666666' },
 };
-const CALL_COLOR = '#0e9d8c';
+const CALL_COLOR = '#d71920';
 
-const state = { map: null, monthlyStats: null };
+const state = { map: null, monthlyStats: null, monthlyMetric: 'appeals' };
 
 document.addEventListener('DOMContentLoaded', () => {
   loadStats();
   loadMonthlyCharts();
   initMap();
+  $$('.chart-switch-btn').forEach((button) => button.addEventListener('click', () => {
+    state.monthlyMetric = button.dataset.chart;
+    $$('.chart-switch-btn').forEach((tab) => {
+      const selected = tab === button;
+      tab.classList.toggle('is-active', selected);
+      tab.setAttribute('aria-selected', String(selected));
+    });
+    if (state.monthlyStats) renderMonthlyChart(state.monthlyStats);
+  }));
   window.addEventListener('resize', debounce(() => {
-    if (state.monthlyStats) renderMonthlyCharts(state.monthlyStats);
+    if (state.monthlyStats) renderMonthlyChart(state.monthlyStats);
   }, 120));
 });
 
@@ -25,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadStats() {
   try {
     const d = (await api({ action: 'stats' })).data;
-    ['outages', 'appeals_in_work'].forEach((k) => {
+    ['outages_mkd', 'outages_social', 'outages_other', 'appeals_in_work'].forEach((k) => {
       const el = document.querySelector(`[data-stat="${k}"]`);
       if (el) countUp(el, d[k]);
     });
@@ -37,24 +46,25 @@ async function loadMonthlyCharts() {
   try {
     const data = (await api({ action: 'monthly_stats' })).data;
     state.monthlyStats = data;
-    renderMonthlyCharts(data);
+    renderMonthlyChart(data);
   } catch (error) {
-    $('#appeals-chart-total').textContent = error.message;
-    $('#outages-chart-total').textContent = error.message;
+    $('#monthly-chart-total').textContent = error.message;
   }
 }
 
-function renderMonthlyCharts(data) {
+function renderMonthlyChart(data) {
   const month = new Date(`${data.month}-01T00:00:00`).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
-  const appealsTotal = data.days.reduce((sum, row) => sum + row.appeals, 0);
-  const outagesTotal = data.days.reduce((sum, row) => sum + row.outages, 0);
-  $('#appeals-chart-total').textContent = `${month} · всего: ${appealsTotal}`;
-  $('#outages-chart-total').textContent = `${month} · всего: ${outagesTotal}`;
-  drawMonthlyChart($('#appeals-month-chart'), data.days, 'appeals', '#0e9d8c');
-  drawMonthlyChart($('#outages-month-chart'), data.days, 'outages', '#e2483d');
+  const metric = state.monthlyMetric;
+  const seriesTotal = data.days.reduce((sum, row) => sum + row[metric], 0);
+  const max = Math.max(1, ...data.days.flatMap((row) => [row.appeals, row.outages]));
+  const isAppeals = metric === 'appeals';
+  $('#monthly-chart-title').textContent = isAppeals ? 'Обращения за месяц' : 'Отключения за месяц';
+  $('#monthly-chart-total').textContent = `${month} · всего: ${seriesTotal}`;
+  $('#monthly-chart-link').href = (window.APP?.base || '') + (isAppeals ? '/appeals.php' : '/outages.php');
+  drawMonthlyChart($('#monthly-chart'), data.days, metric, isAppeals ? '#0e9d8c' : '#e2483d', max);
 }
 
-function drawMonthlyChart(canvas, rows, key, color) {
+function drawMonthlyChart(canvas, rows, key, color, max) {
   const ratio = window.devicePixelRatio || 1;
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
@@ -66,7 +76,6 @@ function drawMonthlyChart(canvas, rows, key, color) {
   const pad = { top: 12, right: 12, bottom: 28, left: 34 };
   const plotWidth = width - pad.left - pad.right;
   const plotHeight = height - pad.top - pad.bottom;
-  const max = Math.max(1, ...rows.map((row) => row[key]));
   context.font = '11px Golos Text, sans-serif';
   context.textAlign = 'right';
   context.textBaseline = 'middle';
@@ -146,7 +155,7 @@ async function initMap() {
     cCall.add(mk(a, CALL_COLOR,
       `<div class="mbal"><b>${esc(a.address)}</b>`
       + `<span class="mbal-tag" style="--c:${CALL_COLOR}">звонок в поддержку</span>`
-      + `<span class="mbal-id mono">#${a.id} · ${esc(a.fio)} · ${esc(a.phone)}</span></div>`));
+      + `<span class="mbal-id mono">Обращение № ${a.id} · ${esc(a.fio)} · ${esc(a.phone)}</span></div>`));
   });
 
   map.geoObjects.add(cShutdown);

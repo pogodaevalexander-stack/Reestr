@@ -6,8 +6,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const picker = $('#st-filter-picker');
   const popup = $('#st-filter-popup');
   const toggle = $('#st-filter-toggle');
-  $('#st-from').addEventListener('change', () => { updateStatsFilterLabel(); loadOperatorStats(); });
-  $('#st-to').addEventListener('change', () => { updateStatsFilterLabel(); loadOperatorStats(); });
+  $('#st-from').addEventListener('change', updateStatsFilterLabel);
+  $('#st-to').addEventListener('change', updateStatsFilterLabel);
+  $('#st-filter-search').addEventListener('click', () => {
+    loadOperatorStats();
+    popup.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
+  });
   $('#st-q').addEventListener('input', renderOperatorStats);
   toggle.addEventListener('click', () => {
     popup.hidden = !popup.hidden;

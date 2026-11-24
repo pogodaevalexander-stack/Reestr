@@ -22,7 +22,7 @@ require __DIR__ . '/partials/head.php';
           <label>Оператор <select id="audit-actor"><option value="">Все операторы</option></select></label>
           <label>Действие <select id="audit-action"><option value="">Все действия</option></select></label>
           <label>Раздел <select id="audit-entity"><option value="">Все разделы</option></select></label>
-          <button type="button" class="btn ghost sm" id="audit-filter-reset">Сбросить фильтры</button>
+          <div class="header-actions"><button type="button" class="btn primary sm" id="audit-filter-search">Поиск</button><button type="button" class="btn ghost sm" id="audit-filter-reset">Сбросить фильтры</button></div>
         </div>
       </div>
     </div>

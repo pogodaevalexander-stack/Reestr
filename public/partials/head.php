@@ -10,8 +10,8 @@ $pageScript  = $pageScript ?? '';
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= e($pageTitle) ?> · Реестр отключений</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23f59f0a' d='M12 2s7 7.6 7 12.4A7 7 0 0 1 5 14.4C5 9.6 12 2 12 2Z'/%3E%3C/svg%3E">
+<title><?= e($pageTitle) ?> · Реестр АОТК</title>
+<link rel="icon" href="<?= BASE ?>/logo/Итоговый_ImgID1.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;800&family=JetBrains+Mono:wght@500;700&family=Unbounded:wght@500;700;900&display=swap" rel="stylesheet">
@@ -21,13 +21,13 @@ $pageScript  = $pageScript ?? '';
 <script src="https://api-maps.yandex.ru/2.1/?apikey=<?= e(YANDEX_MAPS_KEY) ?>&lang=ru_RU"></script>
 <?php endif; ?>
 </head>
-<body data-page="<?= e($page) ?>">
+<body data-page="<?= e($page) ?>" data-read-only="<?= ($currentUser['role'] ?? '') === 'user' ? '1' : '0' ?>">
 
 <aside class="side">
   <div class="brand">
-    <div class="brand-mark">Р</div>
+    <div class="brand-mark" aria-label="АОТК"></div>
     <div class="brand-text">
-      <b>РЕЕСТР</b>
+      <b>РЕЕСТР АОТК</b>
     </div>
   </div>
 
@@ -40,6 +40,10 @@ $pageScript  = $pageScript ?? '';
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z"/></svg>
       <span>Отключения</span><i class="nav-badge" id="badge-outages" hidden></i>
     </a>
+    <a class="nav-item<?= $page === 'improvements' ? ' is-active' : '' ?>" href="<?= BASE ?>/improvements.php">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/></svg>
+      <span>Благоустройство</span>
+    </a>
     <a class="nav-item<?= $page === 'appeals' ? ' is-active' : '' ?>" href="<?= BASE ?>/appeals.php">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/></svg>
       <span>Обращения</span><i class="nav-badge teal" id="badge-calls" hidden></i>
@@ -47,6 +51,10 @@ $pageScript  = $pageScript ?? '';
     <a class="nav-item<?= $page === 'stats' ? ' is-active' : '' ?>" href="<?= BASE ?>/stats.php">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h17M8 16v-4M13 16V8M18 16V4"/></svg>
       <span>Статистика</span>
+    </a>
+    <a class="nav-item<?= $page === 'archive' ? ' is-active' : '' ?>" href="<?= BASE ?>/archive.php">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4H4zM5 8v12h14V8M9 12h6M9 16h6"/></svg>
+      <span>Архив</span>
     </a>
     <?php if (($currentUser['role'] ?? '') === 'admin'): ?>
     <a class="nav-item<?= $page === 'admin_audit' ? ' is-active' : '' ?>" href="<?= BASE ?>/admin_audit.php">
@@ -69,12 +77,12 @@ $pageScript  = $pageScript ?? '';
 <div class="shell">
   <header class="topbar">
     <div>
-      <p class="crumb">Реестр / <?= e($pageTitle) ?></p>
+      <p class="crumb">Реестр АОТК / <?= e($pageTitle) ?></p>
       <h1 class="topbar-title"><?= e($pageTitle) ?></h1>
     </div>
     <div class="topbar-right">
       <?php if ($currentUser): ?>
-        <span class="user-chip"><?= e($currentUser['full_name'] !== '' ? $currentUser['full_name'] : $currentUser['login']) ?> · <?= e($currentUser['login']) ?> · <?= ($currentUser['role'] ?? '') === 'admin' ? 'Администратор' : 'Оператор' ?></span>
+        <span class="user-chip"><?= e($currentUser['full_name'] !== '' ? $currentUser['full_name'] : $currentUser['login']) ?> · <?= e($currentUser['login']) ?> · <?= ['admin' => 'Администратор', 'user' => 'Пользователь'][$currentUser['role'] ?? ''] ?? 'Оператор' ?></span>
         <a class="logout-link" href="<?= BASE ?>/logout.php">Выход</a>
       <?php endif; ?>
       <div class="refresh-controls" aria-label="Обновление страницы">

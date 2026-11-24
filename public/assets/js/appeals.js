@@ -9,12 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
   reload();
   $('#ap-q').addEventListener('input', debounce(reload, 300));
   $('#ap-status-filter').addEventListener('change', reload);
-  $('#ap-from').addEventListener('change', () => { updateFilterLabel(); reload(); });
-  $('#ap-to').addEventListener('change', () => { updateFilterLabel(); reload(); });
-  fields.forEach((field) => field.addEventListener('change', () => {
-    updateFilterLabel();
-    reload();
-  }));
+  $('#ap-from').addEventListener('change', updateFilterLabel);
+  $('#ap-to').addEventListener('change', updateFilterLabel);
+  fields.forEach((field) => field.addEventListener('change', updateFilterLabel));
   toggle.addEventListener('click', () => {
     popup.hidden = !popup.hidden;
     toggle.setAttribute('aria-expanded', String(!popup.hidden));
@@ -46,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
       location.href = row.dataset.editUrl;
     }
   });
+  $('#ap-filter-search').addEventListener('click', () => { reload(); closeFilterPopup(); });
 
   function closeFilterPopup() {
     popup.hidden = true;
@@ -94,13 +92,13 @@ function render(rows, query) {
   }
   tbody.innerHTML = rows.map((appeal) => `
     <tr class="appeal-row" data-edit-url="${esc((window.APP?.base || '') + '/appeal_form.php?id=' + appeal.id)}">
-      <td><span class="idchip mono">#${appeal.id}</span></td>
       <td class="mono sm ap-date">${hl(fmtDT(appeal.call_at), query)}</td>
+      <td class="ap-status"><span class="pill ${appeal.status === 'completed' ? 'on' : 'hot'}">${appealStatusLabel(appeal.status)}</span></td>
+      <td><span class="idchip mono">${appeal.id}</span></td>
       <td class="td-addr ap-address">${hl(appeal.address, query)}</td>
       <td class="ap-fio">${hl(appeal.fio, query)}</td>
       <td class="mono sm ap-phone">${hl(appeal.phone, query)}</td>
       <td class="ap-type">${hl(appealTypeLabel(appeal.type), query)}</td>
-      <td class="ap-status"><span class="pill ${appeal.status === 'completed' ? 'on' : 'hot'}">${appealStatusLabel(appeal.status)}</span></td>
       <td class="ap-operator">${hl(appeal.operator_name || '—', query)}</td>
       <td class="mono sm ap-date">${hl(fmtDT(appeal.created_at), query)}</td>
       <td class="mono sm ap-date">${hl(fmtDT(appeal.updated_at), query)}</td>

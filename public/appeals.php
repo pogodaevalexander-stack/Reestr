@@ -16,7 +16,7 @@ require __DIR__ . '/partials/head.php';
       </div>
       <div class="header-actions">
         <a class="btn ghost excel-export" href="<?= BASE ?>/export.php?type=appeals" download="appeals.xlsx" data-filename="appeals.xlsx">Экспорт в Excel</a>
-        <a class="btn primary" href="<?= BASE ?>/appeal_form.php">Новое обращение</a>
+        <?php if (($currentUser['role'] ?? '') !== 'user'): ?><a class="btn primary" href="<?= BASE ?>/appeal_form.php">Новое обращение</a><?php endif; ?>
       </div>
     </div>
     <div class="toolbar">
@@ -32,7 +32,7 @@ require __DIR__ . '/partials/head.php';
           </button>
           <div class="filter-popup appeal-filter-popup" id="ap-filter-popup" hidden>
             <strong>Искать по полям</strong>
-            <label><input type="checkbox" value="id" data-search-field> ID</label>
+            <label><input type="checkbox" value="id" data-search-field> Номер</label>
             <label><input type="checkbox" value="address" data-search-field> Адрес</label>
             <label><input type="checkbox" value="fio" data-search-field> ФИО</label>
             <label><input type="checkbox" value="phone" data-search-field> Телефон</label>
@@ -45,7 +45,10 @@ require __DIR__ . '/partials/head.php';
             <span class="filter-group-title">Период звонка</span>
             <label class="filter-period"><span>С</span><input type="datetime-local" id="ap-from"></label>
             <label class="filter-period"><span>По</span><input type="datetime-local" id="ap-to"></label>
-            <button type="button" class="btn ghost sm" id="ap-filter-reset">Сбросить выбор</button>
+            <div class="header-actions">
+              <button type="button" class="btn primary sm" id="ap-filter-search">Поиск</button>
+              <button type="button" class="btn ghost sm" id="ap-filter-reset">Сбросить выбор</button>
+            </div>
           </div>
         </div>
       </div>
@@ -61,26 +64,26 @@ require __DIR__ . '/partials/head.php';
     <div class="tbl-wrap">
       <table class="tbl" id="ap-table">
         <colgroup>
-          <col class="ap-col-id">
           <col class="ap-col-date">
+          <col class="ap-col-status">
+          <col class="ap-col-id">
           <col class="ap-col-address">
           <col class="ap-col-fio">
           <col class="ap-col-phone">
           <col class="ap-col-type">
-          <col class="ap-col-status">
           <col class="ap-col-operator">
           <col class="ap-col-date">
           <col class="ap-col-date">
         </colgroup>
         <thead>
           <tr>
-            <th>ID</th>
             <th>Дата звонка</th>
+            <th>Статус</th>
+            <th>Номер</th>
             <th>Адрес</th>
             <th>ФИО заявителя</th>
             <th>Телефон</th>
             <th>Тип</th>
-            <th>Статус</th>
             <th>Оператор</th>
             <th>Создано</th>
             <th>Изменено</th>

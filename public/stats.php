@@ -19,7 +19,7 @@ require __DIR__ . '/partials/head.php';
           <strong>Период статистики</strong>
           <label class="filter-period"><span>С</span><input type="datetime-local" id="st-from"></label>
           <label class="filter-period"><span>По</span><input type="datetime-local" id="st-to"></label>
-          <button type="button" class="btn ghost sm" id="st-filter-reset">Сбросить фильтры</button>
+          <div class="header-actions"><button type="button" class="btn primary sm" id="st-filter-search">Поиск</button><button type="button" class="btn ghost sm" id="st-filter-reset">Сбросить фильтры</button></div>
         </div>
       </div>
     </div>

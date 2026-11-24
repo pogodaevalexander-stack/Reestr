@@ -11,14 +11,14 @@
 CREATE DATABASE IF NOT EXISTS `reestr` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `reestr`;
 
--- 1. Учётные записи: оператор/администратор, отображаемое ФИО, bcrypt-хэш,
+-- 1. Учётные записи: оператор/администратор/пользователь (только просмотр), отображаемое ФИО, bcrypt-хэш,
 --    активность и дата создания.
 CREATE TABLE IF NOT EXISTS `accounts` (
   `id`            INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `login`         VARCHAR(64) NOT NULL,
   `full_name`     VARCHAR(255) NOT NULL DEFAULT '',
   `password_hash` VARCHAR(255) NOT NULL,
-  `role`          ENUM('operator','admin') NOT NULL DEFAULT 'operator',
+  `role`          ENUM('operator','admin','user') NOT NULL DEFAULT 'operator',
   `is_active`     TINYINT(1) NOT NULL DEFAULT 1,
   `created_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS `houses` (
   UNIQUE KEY `uq_address` (`address`(191))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3. Отключения: плановое и фактическое начало, причина, плановое восстановление.
+-- 3. Отключения: плановое и фактическое начало, причина, плановое восстановление и числа затронутых объектов.
 CREATE TABLE IF NOT EXISTS `outages` (
   `id`            INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `house_id`      INT UNSIGNED NOT NULL,
@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS `outages` (
   `planned_end`   DATETIME NULL,
   `mkd_count`     INT UNSIGNED NOT NULL DEFAULT 0,
   `social_count`  INT UNSIGNED NOT NULL DEFAULT 0,
+  `other_count`   INT UNSIGNED NOT NULL DEFAULT 0,
   `operator_name` VARCHAR(255) NOT NULL DEFAULT '',
   `is_active`     TINYINT(1) NOT NULL DEFAULT 1,
   `created_at`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -124,6 +125,7 @@ BEGIN
   IF column_count = 0 THEN
     ALTER TABLE `accounts` ADD COLUMN `role` ENUM('operator','admin') NOT NULL DEFAULT 'operator' AFTER `password_hash`;
   END IF;
+  ALTER TABLE `accounts` MODIFY COLUMN `role` ENUM('operator','admin','user') NOT NULL DEFAULT 'operator';
 
   -- Обращения: время звонка и автор записи. Исторический call_at берётся из created_at.
   SELECT COUNT(*) INTO column_count FROM information_schema.COLUMNS
@@ -186,6 +188,11 @@ BEGIN
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'outages' AND COLUMN_NAME = 'social_count';
   IF column_count = 0 THEN
     ALTER TABLE `outages` ADD COLUMN `social_count` INT UNSIGNED NOT NULL DEFAULT 0;
+  END IF;
+  SELECT COUNT(*) INTO column_count FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'outages' AND COLUMN_NAME = 'other_count';
+  IF column_count = 0 THEN
+    ALTER TABLE `outages` ADD COLUMN `other_count` INT UNSIGNED NOT NULL DEFAULT 0;
   END IF;
   SELECT COUNT(*) INTO column_count FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'outages' AND COLUMN_NAME = 'operator_name';

@@ -121,7 +121,7 @@ define('MAP_CENTER', config()['map_center']);
 define('MAP_BOUNDS', config()['map_bounds']);
 define('MAP_ZOOM', (int)config()['map_zoom']);
 
-/** PDO-подключение (singleton). */
+/** PDO-podключение (singleton). */
 final class Database
 {
     private static ?PDO $pdo = null;
@@ -187,8 +187,12 @@ function e(?string $s): string
 function get_stats(): array
 {
     $pdo = Database::pdo();
+    $outageCounts = $pdo->query("SELECT COALESCE(SUM(mkd_count), 0) AS mkd, COALESCE(SUM(social_count), 0) AS social, COALESCE(SUM(other_count), 0) AS other FROM outages WHERE is_active = 1 AND type IN ('shutdown','damage')")->fetch();
     return [
-        'outages' => (int)$pdo->query('SELECT COUNT(DISTINCT house_id) FROM outages WHERE is_active = 1')->fetchColumn(),
+        'outages' => (int)$pdo->query("SELECT COUNT(DISTINCT house_id) FROM outages WHERE is_active = 1 AND type IN ('shutdown','damage')")->fetchColumn(),
+        'outages_mkd' => (int)$outageCounts['mkd'],
+        'outages_social' => (int)$outageCounts['social'],
+        'outages_other' => (int)$outageCounts['other'],
         'appeals_in_work' => (int)$pdo->query("SELECT COUNT(*) FROM appeals WHERE status = 'in_work'")->fetchColumn(),
     ];
 }
@@ -233,7 +237,10 @@ function archive_recent_records(): void
         $pdo = Database::pdo();
         $linesToAppend = [];
         foreach (['appeals', 'outages'] as $entity) {
-            $rows = $pdo->query("SELECT * FROM `$entity` WHERE created_at >= DATE_SUB(NOW(), INTERVAL 3 MONTH) ORDER BY created_at, id")->fetchAll();
+            $query = $entity === 'outages'
+                ? 'SELECT o.*, h.address FROM outages o JOIN houses h ON h.id = o.house_id WHERE o.created_at >= DATE_SUB(NOW(), INTERVAL 3 MONTH) ORDER BY o.created_at, o.id'
+                : 'SELECT * FROM appeals WHERE created_at >= DATE_SUB(NOW(), INTERVAL 3 MONTH) ORDER BY created_at, id';
+            $rows = $pdo->query($query)->fetchAll();
             foreach ($rows as $row) {
                 $key = $entity . ':' . $row['id'];
                 if (isset($seen[$key])) continue;
@@ -276,6 +283,11 @@ function ensure_feature_schema(): void
         return $value === false ? null : (string)$value;
     };
 
+    $roleType = $columnType('accounts', 'role');
+    if ($roleType !== null && strpos($roleType, "'user'") === false) {
+        $pdo->exec("ALTER TABLE accounts MODIFY role ENUM('operator','admin','user') NOT NULL DEFAULT 'operator'");
+    }
+
     $outageType = $columnType('outages', 'type');
     if ($outageType !== null) {
         $legacyType = strpos($outageType, 'hot_water') !== false || strpos($outageType, 'heating') !== false;
@@ -295,6 +307,7 @@ function ensure_feature_schema(): void
     foreach ([
         'mkd_count' => 'INT UNSIGNED NOT NULL DEFAULT 0',
         'social_count' => 'INT UNSIGNED NOT NULL DEFAULT 0',
+        'other_count' => 'INT UNSIGNED NOT NULL DEFAULT 0',
         'operator_name' => "VARCHAR(255) NOT NULL DEFAULT ''",
     ] as $column => $definition) {
         if ($columnType('outages', $column) === null) {

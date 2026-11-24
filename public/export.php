@@ -18,24 +18,24 @@ $numericColumns = [];
 if ($type === 'appeals') {
     $sheetName = 'Обращения';
     $filename = 'appeals_' . date('Ymd_His') . '.xlsx';
-    $headers = ['ID', 'Дата и время звонка', 'ФИО оператора, зарегистрировавшего обращение', 'Адрес', 'ФИО заявителя', 'Телефон', 'Состав обращения', 'Тип обращения', 'Статус', 'Создано', 'Изменено'];
+    $headers = ['Номер', 'Дата и время звонка', 'Статус', 'ФИО оператора, зарегистрировавшего обращение', 'Адрес', 'ФИО заявителя', 'Телефон', 'Состав обращения', 'Тип обращения', 'Создано', 'Изменено'];
     $dateColumns = [1, 9, 10];
     $numericColumns = [0];
     $records = (new AppealRepository())->list(null, false, [], 'all', $from, $to);
     $rows = [$headers];
     foreach ($records as $record) {
         $rows[] = [
-            $record['id'], $record['call_at'], $record['operator_name'], $record['address'],
-            $record['fio'], $record['phone'], $record['subject'], export_appeal_type((string)$record['type']),
-            $record['status'] === 'completed' ? 'Завершено' : 'В работе', $record['created_at'], $record['updated_at'],
+            $record['id'], $record['call_at'], $record['status'] === 'completed' ? 'Завершено' : 'В работе',
+            $record['operator_name'], $record['address'], $record['fio'], $record['phone'], $record['subject'],
+            export_appeal_type((string)$record['type']), $record['created_at'], $record['updated_at'],
         ];
     }
 } elseif ($type === 'outages') {
     $sheetName = 'Отключения';
     $filename = 'outages_' . date('Ymd_His') . '.xlsx';
-    $headers = ['ID', 'Адрес', 'ID дома', 'Тип / вид', 'Причина', 'Планируемое начало', 'Фактическое начало', 'Плановое восстановление', 'МКД, шт.', 'Социальное жильё, шт.', 'ФИО оператора, зарегистрировавшего отключение', 'Статус', 'Дата регистрации'];
-    $dateColumns = [5, 6, 7, 12];
-    $numericColumns = [0, 2, 8, 9];
+    $headers = ['Номер записи', 'Адрес', 'ID дома', 'Тип / вид', 'Причина', 'Планируемое начало', 'Фактическое начало', 'Статус', 'Плановое восстановление', 'МКД, шт.', 'Соц. объекты, шт.', 'Прочее, шт.', 'ФИО оператора, зарегистрировавшего отключение', 'Дата регистрации'];
+    $dateColumns = [5, 6, 8, 13];
+    $numericColumns = [0, 2, 9, 10, 11];
     $records = (new OutageRepository())->list(null, 'all', 'all', $from, $to);
     $rows = [$headers];
     foreach ($records as $record) {
@@ -44,9 +44,10 @@ if ($type === 'appeals') {
             export_outage_type((string)$record['type']) . ' — ' . export_outage_detail((string)$record['detail_type']), $record['reason'],
             $record['type'] === 'improvement' ? null : $record['planned_start'],
             $record['type'] === 'improvement' ? null : $record['actual_start'],
+            (int)$record['is_active'] === 1 ? 'Активно' : 'Восстановлено',
             $record['type'] === 'improvement' ? null : $record['planned_end'],
-            (int)($record['mkd_count'] ?? 0), (int)($record['social_count'] ?? 0), $record['operator_name'] ?? '',
-            (int)$record['is_active'] === 1 ? 'Активно' : 'Восстановлено', $record['created_at'],
+            (int)($record['mkd_count'] ?? 0), (int)($record['social_count'] ?? 0), (int)($record['other_count'] ?? 0),
+            $record['operator_name'] ?? '', $record['created_at'],
         ];
     }
 } else {

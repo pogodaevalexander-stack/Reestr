@@ -115,6 +115,7 @@ require __DIR__ . '/partials/head.php';
       <span class="field-label">Роль</span>
       <select name="role">
         <option value="operator">Оператор</option>
+        <option value="user">Пользователь</option>
         <option value="admin">Администратор</option>
       </select>
     </label>
@@ -147,7 +148,7 @@ require __DIR__ . '/partials/head.php';
         <tr>
           <td data-label="Логин"><?= e($account['login']) ?><?= $isSelf ? ' · вы' : '' ?></td>
           <td data-label="ФИО"><?= e($account['full_name']) ?></td>
-          <td data-label="Роль"><?= $account['role'] === 'admin' ? 'Администратор' : 'Оператор' ?></td>
+          <td data-label="Роль"><?= ['admin' => 'Администратор', 'user' => 'Пользователь'][$account['role']] ?? 'Оператор' ?></td>
           <td class="account-actions" data-label="Действия">
             <div class="account-buttons">
               <button
@@ -209,6 +210,7 @@ require __DIR__ . '/partials/head.php';
         <span class="field-label">Роль</span>
         <select name="role" id="edit-account-role">
           <option value="operator">Оператор</option>
+          <option value="user">Пользователь</option>
           <option value="admin">Администратор</option>
         </select>
       </label>

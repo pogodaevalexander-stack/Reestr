@@ -2,6 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   const id = Number($('#of-id').value);
+  if ($('#of-type').value === 'improvement') updateDetailVisibility();
   loadOutage(id);
   $('#outage-form').addEventListener('submit', submitOutage);
   $('#of-type').addEventListener('change', updateDetailVisibility);
@@ -13,9 +14,9 @@ async function loadOutage(editingId) {
   try {
     if (editingId) {
       const outage = (await api({ action: 'outages', op: 'get', id: editingId })).data;
-      $('#of-form-title').textContent = `Изменить отключение #${editingId}`;
-      $('.topbar-title').textContent = `Изменить отключение #${editingId}`;
-      document.title = `Изменить отключение #${editingId} · Реестр отключений`;
+      $('#of-form-title').textContent = `Изменить ${outage.type === 'improvement' ? 'благоустройство' : 'отключение'} #${editingId}`;
+      $('.topbar-title').textContent = `Изменить ${outage.type === 'improvement' ? 'благоустройство' : 'отключение'} #${editingId}`;
+      document.title = `Изменить ${outage.type === 'improvement' ? 'благоустройство' : 'отключение'} #${editingId} · Реестр АОТК`;
       $('#of-address').value = outage.address || '';
       $('#of-type').value = outage.type || 'shutdown';
       $('#of-detail-type').value = outage.detail_type || 'full_shutdown';
@@ -25,14 +26,20 @@ async function loadOutage(editingId) {
       $('#of-reason').value = outage.reason || '';
       $('#of-mkd-count').value = outage.mkd_count ?? '';
       $('#of-social-count').value = outage.social_count ?? '';
+      $('#of-other-count').value = outage.other_count ?? '';
       $('#of-planned-start').value = outage.planned_start ? outage.planned_start.replace(' ', 'T').slice(0, 16) : '';
       $('#of-actual-start').value = outage.actual_start ? outage.actual_start.replace(' ', 'T').slice(0, 16) : '';
       $('#of-planned-end').value = outage.planned_end ? outage.planned_end.replace(' ', 'T').slice(0, 16) : '';
       $('#of-save').textContent = 'Сохранить изменения';
-      $('#of-toggle').hidden = false;
+      $('#of-toggle').hidden = outage.type === 'improvement';
       $('#of-toggle').dataset.active = Number(outage.is_active) === 1 ? '1' : '0';
-      $('#of-toggle').textContent = Number(outage.is_active) === 1 ? 'Восстановить' : 'Снова отключить';
+      if (outage.type !== 'improvement' && Number(outage.is_active) === 1) {
+        $('#of-toggle').textContent = 'Закрыть';
+      } else {
+        $('#of-toggle').hidden = true;
+      }
       if ($('#of-delete')) $('#of-delete').hidden = false;
+      updateDetailVisibility();
     }
   } catch (error) {
     toast(error.message, 'err');
@@ -40,13 +47,19 @@ async function loadOutage(editingId) {
 }
 
 function updateDetailVisibility() {
-  const isImprovement = $('#of-type').value === 'improvement';
+  const type = $('#of-type').value;
+  const typeSelect = $('#of-type');
+  const color = type === 'shutdown' ? '#d71920' : (type === 'damage' ? '#111111' : '#6b7280');
+  typeSelect.style.borderColor = color;
+  const isImprovement = type === 'improvement';
   $('#of-detail-field').hidden = isImprovement;
   $('#of-detail-type').disabled = isImprovement;
   ['of-planned-start-field', 'of-actual-start-field', 'of-planned-end-field', 'of-mkd-field', 'of-social-field']
     .forEach((id) => { $('#' + id).hidden = isImprovement; });
   $('#of-mkd-count').required = !isImprovement;
   $('#of-social-count').required = !isImprovement;
+  $('#of-other-field').hidden = isImprovement;
+  $('#of-other-count').required = !isImprovement;
 }
 
 async function submitOutage(event) {
@@ -67,6 +80,7 @@ async function submitOutage(event) {
     reason: $('#of-reason').value.trim(),
     mkd_count: $('#of-mkd-count').value.trim(),
     social_count: $('#of-social-count').value.trim(),
+    other_count: $('#of-other-count').value.trim(),
   };
   if ($('#of-type').value !== 'improvement') {
     body.planned_start = $('#of-planned-start').value;
@@ -81,44 +95,39 @@ async function submitOutage(event) {
     }
     const mkd = $('#of-mkd-count');
     const social = $('#of-social-count');
+    const other = $('#of-other-count');
     const validCount = (value) => value.trim() !== '' && Number.isInteger(Number(value)) && Number(value) >= 0;
     if (!validCount(mkd.value)) { mkd.focus(); toast('Укажите количество МКД целым неотрицательным числом.', 'err'); return; }
     if (!validCount(social.value)) { social.focus(); toast('Укажите количество объектов социального жилья целым неотрицательным числом.', 'err'); return; }
+    if (!validCount(other.value)) { other.focus(); toast('Укажите количество прочего целым неотрицательным числом.', 'err'); return; }
   }
   try {
     const result = await api({ action: 'outages', op: id ? 'update' : 'create' }, {
       method: 'POST', body: id ? { ...body, id } : body,
     });
-    toast(id ? `Отключение #${id} сохранено.` : `Отключение #${result.data.id} зарегистрировано.`, 'ok');
+    const recordName = $('#of-type').value === 'improvement' ? 'Благоустройство' : 'Отключение';
+    toast(id ? `${recordName} #${id} сохранено.` : `${recordName} #${result.data.id} зарегистрировано.`, 'ok');
     loadBadges();
-    setTimeout(() => { location.href = (window.APP?.base || '') + '/outages.php'; }, 700);
+    setTimeout(() => { location.href = (window.APP?.base || '') + ($('#of-type').value === 'improvement' ? '/improvements.php' : '/outages.php'); }, 700);
   } catch (error) {
     toast(error.message, 'err');
   }
 }
 
+if (window.APP?.readOnly) {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('#outage-form input, #outage-form select, #outage-form textarea').forEach((field) => { field.disabled = true; });
+    ['#of-save', '#of-toggle', '#of-delete'].forEach((selector) => { const button = $(selector); if (button) button.hidden = true; });
+  });
+}
+
 async function toggleOutage() {
   const id = Number($('#of-id').value);
   if (!id) return;
-  const isActive = $('#of-toggle').dataset.active === '1';
+  if ($('#of-type').value === 'improvement') return;
+  if (!confirm('Закрыть отключение? Запись будет удалена без возможности повторного включения.')) return;
   try {
-    const makeImprovement = isActive && $('#of-type').value !== 'improvement'
-      && confirm('Начать благоустройство?');
-    await api({ action: 'outages', op: 'update' }, {
-      method: 'POST', body: { id, is_active: isActive ? 0 : 1 },
-    });
-    if (makeImprovement) {
-      const wrap = $('#of-address-wrap');
-      const now = new Date();
-      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-      await api({ action: 'outages', op: 'create' }, {
-        method: 'POST', body: {
-          address: $('#of-address').value.trim(), lat: wrap.querySelector('.sg-lat').value,
-          lng: wrap.querySelector('.sg-lng').value, type: 'improvement',
-          detail_type: 'full_shutdown', actual_start: now.toISOString().slice(0, 16), reason: '',
-        },
-      });
-    }
+    await api({ action: 'outages', op: 'update' }, { method: 'POST', body: { id, is_active: 0 } });
     location.href = (window.APP?.base || '') + '/outages.php';
   } catch (error) {
     toast(error.message, 'err');
@@ -130,7 +139,7 @@ async function deleteOutage() {
   if (!id || !confirm('Удалить отключение?')) return;
   try {
     await api({ action: 'outages', op: 'delete' }, { method: 'POST', body: { id } });
-    location.href = (window.APP?.base || '') + '/outages.php';
+    location.href = (window.APP?.base || '') + ($('#of-type').value === 'improvement' ? '/improvements.php' : '/outages.php');
   } catch (error) {
     toast(error.message, 'err');
   }

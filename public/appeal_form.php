@@ -16,7 +16,7 @@ require __DIR__ . '/partials/head.php';
     </div>
     <form class="form record-form" id="ap-form" novalidate>
       <div class="edit-flag" id="ap-edit-flag" hidden>
-        Редактирование <b class="mono" id="ap-edit-id"></b>
+        Редактирование обращения № <b class="mono" id="ap-edit-id"></b>
       </div>
       <label class="field">
         <span class="field-label">Адрес</span>

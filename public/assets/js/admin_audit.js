@@ -6,9 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const popup = $('#audit-filter-popup');
   const picker = $('#audit-filter-picker');
   const toggle = $('#audit-filter-toggle');
-  ['audit-from', 'audit-to', 'audit-actor', 'audit-action', 'audit-entity'].forEach((id) => {
-    $('#' + id).addEventListener('change', loadAuditLog);
-  });
   toggle.addEventListener('click', () => {
     popup.hidden = !popup.hidden;
     toggle.setAttribute('aria-expanded', String(!popup.hidden));
@@ -23,6 +20,11 @@ document.addEventListener('DOMContentLoaded', () => {
       popup.hidden = true;
       toggle.setAttribute('aria-expanded', 'false');
     }
+  });
+  $('#audit-filter-search').addEventListener('click', () => {
+    loadAuditLog();
+    popup.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
   });
   loadAuditLog();
 });

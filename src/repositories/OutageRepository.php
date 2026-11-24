@@ -21,7 +21,9 @@ final class OutageRepository
         $conds  = [];
         $args   = [];
 
-        if ($type !== 'all' && in_array($type, self::TYPES, true)) {
+        if ($type === 'outage') {
+            $conds[] = "o.type IN ('shutdown','damage')";
+        } elseif ($type !== 'all' && in_array($type, self::TYPES, true)) {
             $conds[] = 'o.type = ?';
             $args[]  = $type;
         }
@@ -70,7 +72,7 @@ final class OutageRepository
         $st = $this->db->query(
             'SELECT o.id, o.type, o.reason, o.planned_start, o.actual_start, o.planned_end, h.address, h.lat, h.lng
              FROM outages o JOIN houses h ON h.id = o.house_id
-             WHERE o.is_active = 1'
+             WHERE o.is_active = 1 AND o.type IN (\'shutdown\',\'damage\')'
         );
         return $st->fetchAll();
     }
@@ -87,12 +89,12 @@ final class OutageRepository
         return $row === false ? null : $row;
     }
 
-    public function create(int $houseId, string $type, string $detailType, ?string $plannedStart, string $actualStart, ?string $reason, ?string $plannedEnd, int $mkdCount, int $socialCount, string $operatorName): int
+    public function create(int $houseId, string $type, string $detailType, ?string $plannedStart, string $actualStart, ?string $reason, ?string $plannedEnd, int $mkdCount, int $socialCount, int $otherCount, string $operatorName): int
     {
         $st = $this->db->prepare(
-            'INSERT INTO outages (house_id, type, detail_type, planned_start, actual_start, reason, planned_end, mkd_count, social_count, operator_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO outages (house_id, type, detail_type, planned_start, actual_start, reason, planned_end, mkd_count, social_count, other_count, operator_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
-        $st->execute([$houseId, $type, $detailType, $plannedStart, $actualStart, $reason, $plannedEnd, $mkdCount, $socialCount, $operatorName]);
+        $st->execute([$houseId, $type, $detailType, $plannedStart, $actualStart, $reason, $plannedEnd, $mkdCount, $socialCount, $otherCount, $operatorName]);
         return (int)$this->db->lastInsertId();
     }
 
@@ -112,6 +114,7 @@ final class OutageRepository
         if (array_key_exists('planned_end', $in))   { $set[] = 'planned_end = ?'; $args[] = $in['planned_end'] !== '' ? $in['planned_end'] : null; }
         if (array_key_exists('mkd_count', $in))     { $set[] = 'mkd_count = ?'; $args[] = (int)$in['mkd_count']; }
         if (array_key_exists('social_count', $in))  { $set[] = 'social_count = ?'; $args[] = (int)$in['social_count']; }
+        if (array_key_exists('other_count', $in))   { $set[] = 'other_count = ?'; $args[] = (int)$in['other_count']; }
         if (array_key_exists('is_active', $in))     { $set[] = 'is_active = ?';   $args[] = (int)(bool)$in['is_active']; }
 
         if (!$set) {

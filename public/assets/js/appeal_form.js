@@ -9,18 +9,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const appeal = (await api({ action: 'appeals', op: 'get', id })).data;
       editingId = id;
-      $('#ap-form-title').textContent = 'Изменить обращение';
+      $('#ap-form-title').textContent = `Обращение № ${id}`;
       $('#ap-form').querySelector('[type="submit"]').textContent = 'Сохранить изменения';
       $('.topbar-title').textContent = 'Изменить обращение';
-      document.title = 'Изменить обращение · Реестр отключений';
+      document.title = 'Изменить обращение · Реестр АОТК';
       $('#ap-edit-flag').hidden = false;
-      $('#ap-edit-id').textContent = '#' + id;
+      $('#ap-edit-id').textContent = String(id);
       $('#ap-address').value = appeal.address;
       $('#ap-fio').value = appeal.fio;
       $('#ap-subject').value = appeal.subject || '';
       $('#ap-type').value = appeal.type || 'other';
       $('#ap-status-field').hidden = false;
       $('#ap-status').textContent = appealStatusText(appeal.status);
+      $('#ap-status').classList.toggle('is-completed', appeal.status === 'completed');
       $('#ap-close').hidden = appeal.status !== 'in_work';
       if ($('#ap-delete')) $('#ap-delete').hidden = false;
       $('#ap-phone').value = appeal.phone;
@@ -40,6 +41,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('#ap-close').addEventListener('click', closeAppeal);
   if ($('#ap-delete')) $('#ap-delete').addEventListener('click', deleteAppeal);
   $('#ap-form').addEventListener('submit', onSubmit);
+  if (window.APP?.readOnly) {
+    $('#ap-form').querySelectorAll('input, select, textarea').forEach((field) => { field.disabled = true; });
+    $('#ap-form').querySelectorAll('button').forEach((button) => { button.hidden = true; });
+  }
   $('#ap-form').querySelectorAll('input[required], textarea[required], select[required]').forEach((input) => {
     const clearInvalid = () => {
       input.closest('.field')?.classList.remove('is-invalid');
@@ -93,7 +98,7 @@ async function onSubmit(event) {
       { action: 'appeals', op: editingId ? 'update' : 'create' },
       { method: 'POST', body }
     );
-    toast(editingId ? `Обращение #${editingId} обновлено.` : `Обращение #${result.data.id} сохранено.`, 'ok');
+    toast(editingId ? `Обращение № ${editingId} обновлено.` : `Обращение № ${result.data.id} сохранено.`, 'ok');
     loadBadges();
     setTimeout(() => { location.href = (window.APP?.base || '') + '/appeals.php'; }, 700);
   } catch (error) {

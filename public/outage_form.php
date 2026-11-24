@@ -2,8 +2,9 @@
 require_once __DIR__ . '/../src/bootstrap.php';
 require_auth();
 $editingId = max(0, (int)($_GET['id'] ?? 0));
-$page       = 'outages';
-$pageTitle  = $editingId > 0 ? 'Изменить отключение' : 'Новое отключение';
+$isImprovementPage = (string)($_GET['type'] ?? '') === 'improvement';
+$page       = $isImprovementPage ? 'improvements' : 'outages';
+$pageTitle  = $isImprovementPage ? ($editingId > 0 ? 'Изменить благоустройство' : 'Новое благоустройство') : ($editingId > 0 ? 'Изменить отключение' : 'Новое отключение');
 $pageScript = 'outage_form.js';
 require __DIR__ . '/partials/head.php';
 ?>
@@ -12,7 +13,7 @@ require __DIR__ . '/partials/head.php';
   <section class="panel span-12 record-form-panel">
     <div class="panel-head slim">
       <h2 class="panel-title" id="of-form-title"><?= $editingId > 0 ? 'Изменить отключение' : 'Регистрация отключения' ?></h2>
-      <a class="btn ghost sm" href="<?= BASE ?>/outages.php">К списку</a>
+      <a class="btn ghost sm" href="<?= BASE ?>/<?= $isImprovementPage ? 'improvements.php' : 'outages.php' ?>">К списку</a>
     </div>
     <form class="form record-form" id="outage-form" novalidate>
       <label class="field">
@@ -24,7 +25,7 @@ require __DIR__ . '/partials/head.php';
         </div>
       </label>
       <label class="field"><span class="field-label">Категория</span>
-        <select id="of-type" required><option value="shutdown">Отключение</option><option value="damage">Повреждение</option><option value="improvement">Благоустройство</option></select>
+        <select id="of-type" required <?= $isImprovementPage ? 'disabled' : '' ?>><option value="shutdown">Отключение</option><option value="damage">Повреждение</option><option value="improvement" <?= $isImprovementPage ? 'selected' : '' ?>>Благоустройство</option></select>
       </label>
       <label class="field" id="of-detail-field"><span class="field-label">Вид</span>
         <select id="of-detail-type" required>
@@ -38,9 +39,10 @@ require __DIR__ . '/partials/head.php';
         <input type="number" id="of-mkd-count" min="0" step="1" required>
       </label>
       <label class="field" id="of-social-field">
-        <span class="field-label">Количество объектов соц. жилья</span>
+        <span class="field-label">Количество соц. объектов</span>
         <input type="number" id="of-social-count" min="0" step="1" required>
       </label>
+      <label class="field" id="of-other-field"><span class="field-label">Количество прочего</span><input type="number" id="of-other-count" min="0" step="1" required></label>
       <label class="field">
         <span class="field-label">Причина</span>
         <input type="text" id="of-reason" placeholder="Причина отключения">
@@ -61,7 +63,7 @@ require __DIR__ . '/partials/head.php';
         <button type="submit" class="btn primary" id="of-save">Зарегистрировать</button>
         <button type="button" class="btn ghost" id="of-toggle" hidden></button>
         <?php if (($currentUser['role'] ?? '') === 'admin'): ?><button type="button" class="btn danger" id="of-delete" hidden>Удалить отключение</button><?php endif; ?>
-        <a class="btn ghost" href="<?= BASE ?>/outages.php">Отмена</a>
+        <a class="btn ghost" href="<?= BASE ?>/<?= $isImprovementPage ? 'improvements.php' : 'outages.php' ?>">Отмена</a>
       </div>
       <input type="hidden" id="of-id" value="<?= $editingId ?>">
     </form>

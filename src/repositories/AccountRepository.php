@@ -166,7 +166,7 @@ final class AccountRepository
 
     private static function validateRole(string $role): void
     {
-        if (!in_array($role, ['operator', 'admin'], true)) {
+        if (!in_array($role, ['operator', 'admin', 'user'], true)) {
             throw new InvalidArgumentException('Выберите допустимую роль.');
         }
     }

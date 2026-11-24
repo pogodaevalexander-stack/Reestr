@@ -14,7 +14,7 @@ final class HouseRepository
     {
         $sql = 'SELECT h.*,
                        (SELECT COUNT(*) FROM outages o
-                         WHERE o.house_id = h.id AND o.is_active = 1) AS active_outages
+                         WHERE o.house_id = h.id AND o.is_active = 1 AND o.type IN (\'shutdown\',\'damage\')) AS active_outages
                 FROM houses h';
         $args = [];
         if ($q !== null && trim($q) !== '') {

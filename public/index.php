@@ -8,16 +8,16 @@ require __DIR__ . '/partials/head.php';
 ?>
 
 <section class="stats">
-  <article class="stat" style="--c:var(--red)">
-    <p class="stat-label">Адреса в отключении</p>
-    <b class="stat-num" data-stat="outages">–</b>
-  </article>
-  <article class="stat" style="--c:var(--teal)">
+  <a class="stat stat-link" style="--c:var(--red)" href="<?= BASE ?>/outages.php"><p class="stat-label">МКД в отключении</p><b class="stat-num" data-stat="outages_mkd">–</b></a>
+  <a class="stat stat-link" style="--c:var(--orange)" href="<?= BASE ?>/outages.php"><p class="stat-label">Соц. объекты в отключении</p><b class="stat-num" data-stat="outages_social">–</b></a>
+  <a class="stat stat-link" style="--c:var(--ink)" href="<?= BASE ?>/outages.php"><p class="stat-label">Прочее в отключении</p><b class="stat-num" data-stat="outages_other">–</b></a>
+  <a class="stat stat-link" style="--c:var(--amber)" href="<?= BASE ?>/appeals.php">
     <p class="stat-label">Обращений в работе</p>
     <b class="stat-num" data-stat="appeals_in_work">–</b>
-  </article>
+  </a>
 </section>
 
+<div class="dashboard-layout">
 <section class="panel map-panel">
     <div class="panel-head">
       <div>
@@ -33,15 +33,17 @@ require __DIR__ . '/partials/head.php';
     </div>
   </section>
 
-<div class="dashboard-charts">
-  <section class="panel chart-panel">
-    <div class="panel-head slim"><div><h2 class="panel-title">Обращения за месяц</h2><p class="panel-sub" id="appeals-chart-total">Загрузка…</p></div><a class="btn ghost sm" href="<?= BASE ?>/appeals.php">Все →</a></div>
-    <div class="chart-wrap"><canvas id="appeals-month-chart" aria-label="Количество обращений по дням текущего месяца"></canvas></div>
-  </section>
-  <section class="panel chart-panel">
-    <div class="panel-head slim"><div><h2 class="panel-title">Зарегистрированные отключения за месяц</h2><p class="panel-sub" id="outages-chart-total">Загрузка…</p></div><a class="btn ghost sm" href="<?= BASE ?>/outages.php">Все →</a></div>
-    <div class="chart-wrap"><canvas id="outages-month-chart" aria-label="Количество зарегистрированных отключений по дням текущего месяца"></canvas></div>
-  </section>
+<section class="panel dashboard-charts">
+  <div class="panel-head slim monthly-chart-head">
+    <div><h2 class="panel-title" id="monthly-chart-title">Обращения за месяц</h2><p class="panel-sub" id="monthly-chart-total">Загрузка…</p></div>
+    <a class="btn ghost sm" id="monthly-chart-link" href="<?= BASE ?>/appeals.php">Все →</a>
+  </div>
+  <div class="chart-switch" role="tablist" aria-label="Тип графика">
+    <button class="chart-switch-btn is-active" type="button" role="tab" aria-selected="true" data-chart="appeals">Обращения</button>
+    <button class="chart-switch-btn" type="button" role="tab" aria-selected="false" data-chart="outages">Отключения</button>
+  </div>
+  <div class="chart-wrap"><canvas id="monthly-chart" aria-label="Количество записей по дням текущего месяца"></canvas></div>
+</section>
 </div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
