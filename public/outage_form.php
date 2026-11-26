@@ -69,7 +69,7 @@ require __DIR__ . '/partials/head.php';
       </label>
       <label class="field">
         <span class="field-label">Причина</span>
-        <input type="text" id="of-reason" placeholder="Причина">
+        <textarea id="of-reason" class="reason-input" placeholder="Причина" rows="5"></textarea>
       </label>
       <label class="field" id="of-planned-start-field">
         <span class="field-label">Планируемое время отключения</span>

@@ -370,6 +370,13 @@ select { padding: 9px 10px; font-weight: 600; font-size: 13px; cursor: pointer; 
 .record-form .field > input, .record-form .field > select, .record-form .field > textarea,
 .record-form .sg-wrap { width: 100%; }
 .record-form textarea { min-height: 120px; resize: vertical; }
+/* Поле «Причина» / «Описание работ» — высокое, ~5 строк */
+.record-form .reason-input {
+  min-height: 240px;   /* было ~48px у input, умножаем примерно на 5 */
+  padding: 12px 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
 .record-form #ap-subject { min-height: 170px; }
 .appeal-current-status { font-weight: 700; color: var(--amber); }
 .appeal-current-status.is-completed { color: var(--ok); }
