@@ -194,6 +194,10 @@ function get_stats(): array
         'outages_social' => (int)$outageCounts['social'],
         'outages_other' => (int)$outageCounts['other'],
         'appeals_in_work' => (int)$pdo->query("SELECT COUNT(*) FROM appeals WHERE status = 'in_work'")->fetchColumn(),
+        // Активные благоустройства — для бейджа в боковой панели.
+        // Считаем по house_id, как и отключения, — чтобы число значило
+        // «сколько адресов в работе», а не «сколько записей».
+        'improvements' => (int)$pdo->query("SELECT COUNT(DISTINCT house_id) FROM outages WHERE is_active = 1 AND type = 'improvement'")->fetchColumn(),
     ];
 }
 

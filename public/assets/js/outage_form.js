@@ -26,17 +26,19 @@ document.addEventListener('DOMContentLoaded', () => {
     plannedEnd: $('#of-planned-end'),
     save: $('#of-save'),
     toggle: $('#of-toggle'),
-    del: $('#of-delete'), // есть только у администратора
+    del: $('#of-delete'),
     title: $('#of-form-title'),
+    fromOutage: $('#of-from-outage'),
+    closeSource: $('#of-close-source'),
   };
 
-  // Поля, которые не нужны для благоустройства.
   const outageOnlyFields = [
     '#of-detail-field', '#of-mkd-field', '#of-social-field', '#of-other-field',
     '#of-planned-start-field', '#of-actual-start-field', '#of-planned-end-field',
   ].map((selector) => $(selector));
 
-  let original = null; // запись, загруженная для редактирования
+  let original = null;    // запись для редактирования
+  let sourceHouse = null; // house_id/lat/lng из отключения-источника
 
   el.type.addEventListener('change', applyType);
   form.addEventListener('submit', onSubmit);
@@ -44,7 +46,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (el.del) el.del.addEventListener('click', onDelete);
 
   applyType();
-  if (editingId) loadRecord();
+
+  if (editingId) {
+    loadRecord();
+  } else if (el.fromOutage && Number(el.fromOutage.value) > 0) {
+    prefillFromOutage(Number(el.fromOutage.value));
+  }
 
   /* ---------- вспомогательные ---------- */
 
@@ -72,14 +79,49 @@ document.addEventListener('DOMContentLoaded', () => {
     location.href = listUrl;
   }
 
-  /* ---------- загрузка записи ---------- */
+  /* ---------- предзаполнение из отключения ---------- */
+
+  function prefillFromOutage(outageId) {
+    setBusy(true);
+    api({ action: 'outages', op: 'get', id: outageId })
+      .then(({ data: o }) => {
+        if (!o) return;
+        sourceHouse = {
+          house_id: o.house_id || null,
+          lat: o.lat || '',
+          lng: o.lng || '',
+          address: (o.address || '').trim(),
+        };
+
+        el.address.value = o.address || '';
+        el.reason.value = o.reason || '';
+        el.detail.value = o.detail_type || 'full_shutdown';
+        el.mkd.value = o.mkd_count ?? 0;
+        el.social.value = o.social_count ?? 0;
+        el.other.value = o.other_count ?? 0;
+        el.plannedStart.value = toLocal(o.planned_start || o.actual_start);
+        el.actualStart.value = toLocal(o.actual_start);
+        el.plannedEnd.value = toLocal(o.planned_end);
+
+        if (el.lat && sourceHouse.lat) el.lat.value = sourceHouse.lat;
+        if (el.lng && sourceHouse.lng) el.lng.value = sourceHouse.lng;
+
+        el.title.textContent = 'Регистрация благоустройства';
+        document.title = 'Новое благоустройство';
+        applyType();
+        toast(`Данные скопированы из отключения #${outageId}. Отключение закроется после сохранения.`, 'ok');
+      })
+      .catch((error) => toast(error.message, 'err'))
+      .finally(() => setBusy(false));
+  }
+
+  /* ---------- загрузка записи (редактирование) ---------- */
 
   function loadRecord() {
     setBusy(true);
     api({ action: 'outages', op: 'get', id: editingId }).then(({ data: o }) => {
       original = o;
 
-      // Категорию «Благоустройство» нельзя менять на другую и наоборот.
       if (o.type === 'improvement') {
         el.type.value = 'improvement';
         el.type.disabled = true;
@@ -121,8 +163,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const address = el.address.value.trim();
     if (address.length < 5) throw new Error('Укажите адрес (минимум 5 символов).');
 
+    const type = improvement ? 'improvement' : el.type.value;
+
     const body = {
-      type: el.type.value,
+      type,
       detail_type: el.detail.value,
       reason: el.reason.value.trim(),
     };
@@ -144,20 +188,44 @@ document.addEventListener('DOMContentLoaded', () => {
         actual_start: el.actualStart.value,
         planned_end: el.plannedEnd.value,
       });
+    } else if (el.actualStart.value) {
+      body.planned_start = el.plannedStart.value || '';
+      body.actual_start = el.actualStart.value || '';
+      body.planned_end = el.plannedEnd.value || '';
     }
 
-    // Адрес отправляем, только если он изменился (или записи ещё нет).
-    const addressChanged = !original || address !== (original.address || '').trim();
-    if (addressChanged || !original.house_id) {
+    const baselineAddress = original
+      ? (original.address || '').trim()
+      : (sourceHouse ? sourceHouse.address : '');
+    const addressChanged = address !== baselineAddress;
+
+    if (addressChanged) {
       body.address = address;
       body.lat = el.lat.value;
       body.lng = el.lng.value;
-    } else {
+    } else if (original && original.house_id) {
       body.house_id = original.house_id;
+    } else if (sourceHouse && sourceHouse.house_id) {
+      body.house_id = sourceHouse.house_id;
+      if (sourceHouse.lat) body.lat = sourceHouse.lat;
+      if (sourceHouse.lng) body.lng = sourceHouse.lng;
+    } else {
+      body.address = address;
+      body.lat = el.lat.value;
+      body.lng = el.lng.value;
     }
 
     if (editingId) body.id = editingId;
     return body;
+  }
+
+  /* ---------- закрытие исходного отключения после создания ---------- */
+
+  async function closeSourceOutage() {
+    if (!el.closeSource) return;
+    const srcId = Number(el.fromOutage?.value) || 0;
+    if (!srcId) return;
+    await api({ action: 'outages', op: 'update' }, { method: 'POST', body: { id: srcId, is_active: 0 } });
   }
 
   /* ---------- действия ---------- */
@@ -171,10 +239,26 @@ document.addEventListener('DOMContentLoaded', () => {
       toast(error.message, 'err');
       return;
     }
+
     setBusy(true);
     try {
+      // 1. Сначала создаём/сохраняем запись (благоустройство или отключение)
       await api({ action: 'outages', op: editingId ? 'update' : 'create' }, { method: 'POST', body });
-      toast(editingId ? 'Изменения сохранены.' : 'Запись зарегистрирована.', 'ok');
+
+      // 2. Если пришли из «Закрыть → Да» — закрываем исходное отключение
+      let closeWarning = '';
+      if (!editingId && el.closeSource) {
+        try {
+          await closeSourceOutage();
+        } catch (error) {
+          closeWarning = ` Благоустройство создано, но исходное отключение не удалось закрыть: ${error.message}`;
+        }
+      }
+
+      toast(
+        (editingId ? 'Изменения сохранены.' : 'Запись зарегистрирована.') + closeWarning,
+        closeWarning ? 'err' : 'ok'
+      );
       goToList();
     } catch (error) {
       toast(error.message, 'err');
@@ -184,6 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function onClose() {
     if (!editingId) return;
+    if (isImprovement()) return;
     if (!confirm('Закрыть запись? Запись будет удалена без возможности повторного включения.')) return;
     setBusy(true);
     try {

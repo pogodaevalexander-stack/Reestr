@@ -104,14 +104,16 @@ function startClock() {
   setInterval(tick, 1000);
 }
 
-/* ---------- бейджи активных отключений / звонков в меню ---------- */
+/* ---------- бейджи активных отключений / благоустройств / звонков в меню ---------- */
 async function loadBadges() {
   try {
     const d  = (await api({ action: 'stats' })).data;
     const b1 = $('#badge-outages');
     const b2 = $('#badge-calls');
-    if (b1) { b1.textContent = d.outages;     b1.hidden = !d.outages; }
+    const b3 = $('#badge-improvements');
+    if (b1) { b1.textContent = d.outages;         b1.hidden = !d.outages; }
     if (b2) { b2.textContent = d.appeals_in_work; b2.hidden = !d.appeals_in_work; }
+    if (b3) { b3.textContent = d.improvements;    b3.hidden = !d.improvements; }
   } catch (_) { /* бейджи не критичны */ }
 }
 

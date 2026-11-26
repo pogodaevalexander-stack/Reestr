@@ -2,14 +2,18 @@
 require_once __DIR__ . '/../src/bootstrap.php';
 require_auth();
 
-// Роль «Пользователь» — только просмотр, формы ей недоступны.
 if ((auth_user()['role'] ?? '') === 'user') {
     header('Location: ' . BASE . '/outages.php');
     exit;
 }
 
-$editingId = max(0, (int)($_GET['id'] ?? 0));
+$editingId         = max(0, (int)($_GET['id'] ?? 0));
 $isImprovementPage = (string)($_GET['type'] ?? '') === 'improvement';
+
+// id закрытого отключения для предзаполнения адреса (данные подтянет JS через API)
+$fromOutageId = max(0, (int)($_GET['from_outage'] ?? 0));
+if ($editingId > 0) $fromOutageId = 0;
+
 $page       = $isImprovementPage ? 'improvements' : 'outages';
 $pageTitle  = $isImprovementPage
     ? ($editingId > 0 ? 'Изменить благоустройство' : 'Новое благоустройство')
@@ -86,6 +90,11 @@ require __DIR__ . '/partials/head.php';
         <a class="btn ghost" href="<?= e($listUrl) ?>">Отмена</a>
       </div>
       <input type="hidden" id="of-id" value="<?= $editingId ?>">
+      <?php if ($fromOutageId > 0): ?>
+        <input type="hidden" id="of-from-outage" value="<?= (int)$fromOutageId ?>">
+        <!-- Скрытый флаг: после сохранения закрыть исходное отключение -->
+        <input type="hidden" id="of-close-source" value="1">
+      <?php endif; ?>
     </form>
   </section>
 </div>

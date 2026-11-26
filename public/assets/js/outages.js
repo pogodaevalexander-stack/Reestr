@@ -7,6 +7,7 @@ const state = { q: '', type: isImprovementsPage ? 'improvement' : 'outage', stat
 
 document.addEventListener('DOMContentLoaded', () => {
   bindFilterPopup();
+  bindImproveModal();
   reloadOutages();
   bindToolbar();
   bindOutageTable();
@@ -22,10 +23,13 @@ function canEditRecords() {
   return !window.APP?.readOnly;
 }
 
-/** Адрес формы редактирования: тип берём из самой записи, а не из страницы. */
 function editUrlFor(outage) {
   const type = outage.type === 'improvement' ? '&type=improvement' : '';
   return `${appBase()}/outage_form.php?id=${encodeURIComponent(outage.id)}${type}`;
+}
+
+function improvementFromOutageUrl(outageId) {
+  return `${appBase()}/outage_form.php?type=improvement&from_outage=${encodeURIComponent(outageId)}`;
 }
 
 /* ---------- панель фильтров ---------- */
@@ -39,9 +43,11 @@ function bindToolbar() {
 function updateFilterLabel() {
   const popup = $('#ot-filter-popup');
   const toggle = $('#ot-filter-toggle');
+  const typeInput = popup.querySelector('input[name="ot-type"]:checked');
+  const statusInput = popup.querySelector('input[name="ot-status"]:checked');
   const activeCount = [
-    popup.querySelector('input[name="ot-type"]:checked').value !== 'all',
-    popup.querySelector('input[name="ot-status"]:checked').value !== 'all',
+    typeInput && typeInput.value !== 'all',
+    statusInput && statusInput.value !== 'all',
     Boolean($('#ot-from').value),
     Boolean($('#ot-to').value),
   ].filter(Boolean).length;
@@ -61,8 +67,10 @@ function bindFilterPopup() {
     toggle.setAttribute('aria-expanded', String(!popup.hidden));
   });
   $('#ot-filter-reset').addEventListener('click', () => {
-    popup.querySelector('input[name="ot-type"][value="all"]').checked = true;
-    popup.querySelector('input[name="ot-status"][value="all"]').checked = true;
+    const allType = popup.querySelector('input[name="ot-type"][value="all"]');
+    const allStatus = popup.querySelector('input[name="ot-status"][value="all"]');
+    if (allType) allType.checked = true;
+    if (allStatus) allStatus.checked = true;
     $('#ot-from').value = '';
     $('#ot-to').value = '';
     updateFilterLabel();
@@ -81,20 +89,93 @@ function bindFilterPopup() {
   }
 }
 
+/* ---------- модалка «Создать благоустройство?» ---------- */
+
+let improveModalResolver = null;
+let previousActive = null;
+
+function bindImproveModal() {
+  const modal = $('#ot-improve-modal');
+  if (!modal) return;
+
+  modal.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-answer]');
+    if (btn) {
+      hideImproveModal(btn.dataset.answer === 'yes');
+      return;
+    }
+    if (event.target === modal) hideImproveModal(false);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !modal.hidden) hideImproveModal(false);
+  });
+}
+
+function askCreateImprovement() {
+  const modal = $('#ot-improve-modal');
+  if (!modal) return Promise.resolve(false);
+
+  previousActive = document.activeElement;
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+  modal.querySelector('[data-answer="yes"]').focus();
+
+  return new Promise((resolve) => { improveModalResolver = resolve; });
+}
+
+function hideImproveModal(answer) {
+  const modal = $('#ot-improve-modal');
+  if (!modal) return;
+  modal.hidden = true;
+  document.body.classList.remove('modal-open');
+  if (previousActive && typeof previousActive.focus === 'function') previousActive.focus();
+  previousActive = null;
+  if (improveModalResolver) {
+    const resolve = improveModalResolver;
+    improveModalResolver = null;
+    resolve(Boolean(answer));
+  }
+}
+
 /* ---------- загрузка и отрисовка ---------- */
 
 function reloadOutages() {
   state.q = $('#ot-q').value.trim();
-  state.type = isImprovementsPage ? 'improvement' : $('input[name="ot-type"]:checked').value;
-  state.status = $('input[name="ot-status"]:checked').value;
+
+  const popup = $('#ot-filter-popup');
+  const typeInput = popup.querySelector('input[name="ot-type"]:checked');
+  const statusInput = popup.querySelector('input[name="ot-status"]:checked');
+
+  if (isImprovementsPage) {
+    // Страница «Благоустройство»: только improvement, фильтр типа не используется.
+    state.type = 'improvement';
+  } else {
+    const selected = typeInput ? typeInput.value : 'all';
+    // «all» на странице отключений = «все, кроме благоустройства».
+    // Отправляем 'outage' — сервер должен вернуть shutdown+damage.
+    // Клиент дополнительно отфильтрует improvement (см. ниже) на случай,
+    // если бэкенд не знает такого маркера.
+    state.type = selected === 'all' ? 'outage' : selected;
+  }
+  state.status = statusInput ? statusInput.value : 'all';
   state.from = $('#ot-from').value;
   state.to = $('#ot-to').value;
+
   updateOutageExportLink(state.from, state.to);
+
   return api({
     action: 'outages', op: 'list', q: state.q, type: state.type, status: state.status, from: state.from, to: state.to,
   }).then((result) => {
-    $('#ot-count').textContent = `записей: ${result.data.length}`;
-    renderOutages(result.data);
+    // Защита от бэкенда, который не знает маркер 'outage':
+    // на странице отключений выкидываем благоустройства, на странице благоустройств — всё, кроме них.
+    const rows = (result.data || []).filter((outage) => (
+      isImprovementsPage
+        ? outage.type === 'improvement'
+        : outage.type !== 'improvement'
+    ));
+    $('#ot-count').textContent = `записей: ${rows.length}`;
+    renderOutages(rows);
   }).catch((error) => toast(error.message, 'err'));
 }
 
@@ -137,7 +218,6 @@ function renderOutages(rows) {
 function bindOutageTable() {
   const tbody = $('#ot-table tbody');
 
-  // Клик по строке открывает редактирование (кнопки и ссылки внутри строки не затрагиваются).
   tbody.addEventListener('click', (event) => {
     const button = event.target.closest('button');
     if (button) {
@@ -150,7 +230,6 @@ function bindOutageTable() {
     }
   });
 
-  // Enter / пробел на самой строке (не на вложенных кнопках).
   tbody.addEventListener('keydown', (event) => {
     const row = event.target.closest('tr[data-edit-url]');
     if (row && event.target === row && (event.key === 'Enter' || event.key === ' ')) {
@@ -160,20 +239,33 @@ function bindOutageTable() {
   });
 }
 
-function handleRowButton(button) {
+async function handleRowButton(button) {
   if (!button.classList.contains('act-toggle')) return;
+  if (button.disabled) return;
+
   const id = Number(button.dataset.id);
-  const isActive = !button.closest('tr').classList.contains('row-off');
-  if (!isActive) return;
-  if (!confirm('Закрыть запись? Запись будет удалена без возможности повторного включения.')) return;
-  (async () => {
+  const row = button.closest('tr');
+  if (!row || row.classList.contains('row-off')) return;
+
+  const createImprovement = await askCreateImprovement();
+
+  if (createImprovement) {
+    location.href = improvementFromOutageUrl(id);
+    return;
+  }
+
+  button.disabled = true;
+  try {
     await api({ action: 'outages', op: 'update' }, {
       method: 'POST', body: { id, is_active: 0 },
     });
-    toast(`Запись #${id} закрыта и удалена.`, 'ok');
+    toast(`Запись #${id} закрыта.`, 'ok');
     reloadOutages();
     loadBadges();
-  })().catch((error) => toast(error.message, 'err'));
+  } catch (error) {
+    button.disabled = false;
+    toast(error.message, 'err');
+  }
 }
 
 function updateOutageExportLink(from, to) {

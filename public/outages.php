@@ -33,11 +33,16 @@ require __DIR__ . '/partials/head.php';
             <span>Фильтр</span>
           </button>
           <div class="filter-popup outage-filter-popup" id="ot-filter-popup" hidden>
-            <strong>Фильтры отключений</strong>
-            <span class="filter-group-title">Тип</span>
-            <label><input type="radio" name="ot-type" value="all" checked> Все типы</label>
-            <label><input type="radio" name="ot-type" value="shutdown"> Отключение</label>
-            <label><input type="radio" name="ot-type" value="damage"> Повреждение</label>
+            <strong>Фильтры <?= $isImprovementPage ? 'благоустройств' : 'отключений' ?></strong>
+
+            <?php if (!$isImprovementPage): ?>
+              <!-- На странице отключений тип «Благоустройство» недоступен -->
+              <span class="filter-group-title">Тип</span>
+              <label><input type="radio" name="ot-type" value="all" checked> Все отключения</label>
+              <label><input type="radio" name="ot-type" value="shutdown"> Отключение</label>
+              <label><input type="radio" name="ot-type" value="damage"> Повреждение</label>
+            <?php endif; ?>
+
             <span class="filter-group-title">Статус</span>
             <label><input type="radio" name="ot-status" value="all" checked> Все статусы</label>
             <label><input type="radio" name="ot-status" value="active"> Активные</label>
@@ -60,7 +65,22 @@ require __DIR__ . '/partials/head.php';
       </table>
     </div>
   </section>
+</div>
 
+<!-- Модальное окно «Создать благоустройство?» -->
+<div class="modal-overlay" id="ot-improve-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ot-improve-title" aria-describedby="ot-improve-text">
+    <button type="button" class="modal-close" data-answer="no" aria-label="Отмена">&times;</button>
+    <h3 id="ot-improve-title">Создать благоустройство?</h3>
+    <p id="ot-improve-text">
+      На основе этого отключения будет создано благоустройство с дублированием адреса.
+      Отключение закроется только после успешного создания благоустройства.
+    </p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" data-answer="no">Нет, просто закрыть</button>
+      <button type="button" class="btn primary" data-answer="yes">Да, создать благоустройство</button>
+    </div>
+  </div>
 </div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

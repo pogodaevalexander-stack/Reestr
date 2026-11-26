@@ -38,15 +38,15 @@ $pageScript  = $pageScript ?? '';
     </a>
     <a class="nav-item<?= $page === 'outages' ? ' is-active' : '' ?>" href="<?= BASE ?>/outages.php">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z"/></svg>
-      <span>Отключения</span><i class="nav-badge" id="badge-outages" hidden></i>
+      <span>Отключения</span><i class="nav-badge orange" id="badge-outages" hidden></i>
     </a>
     <a class="nav-item<?= $page === 'improvements' ? ' is-active' : '' ?>" href="<?= BASE ?>/improvements.php">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/></svg>
-      <span>Благоустройство</span>
+      <span>Благоустройство</span><i class="nav-badge teal" id="badge-improvements" hidden></i>
     </a>
     <a class="nav-item<?= $page === 'appeals' ? ' is-active' : '' ?>" href="<?= BASE ?>/appeals.php">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/></svg>
-      <span>Обращения</span><i class="nav-badge teal" id="badge-calls" hidden></i>
+      <span>Обращения</span><i class="nav-badge" id="badge-calls" hidden></i>
     </a>
     <a class="nav-item<?= $page === 'stats' ? ' is-active' : '' ?>" href="<?= BASE ?>/stats.php">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h17M8 16v-4M13 16V8M18 16V4"/></svg>
