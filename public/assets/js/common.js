@@ -136,20 +136,41 @@ class AddressSuggest {
     const run = debounce(async (q) => {
       if (!q || q.length < 3) { this.hide(); return; }
       try {
+        // Запросы идут независимо: падение houses не должно убивать geocode.
         const requests = [api({ action: 'houses', op: 'list', q })];
         if (window.APP?.hasYandex) requests.push(api({ action: 'geocode', q }));
-        const [houses, geocoded] = await Promise.all(requests);
-        const localItems = (houses.data || []).map((house) => ({ text: house.address, lat: house.lat, lng: house.lng }));
-        const remoteItems = geocoded?.data || [];
+        const results = await Promise.allSettled(requests);
+
+        const housesResult   = results[0];
+        const geocodeResult  = results[1];
+
+        const localItems = (housesResult && housesResult.status === 'fulfilled' && Array.isArray(housesResult.value.data))
+          ? housesResult.value.data.map((house) => ({ text: house.address, lat: house.lat, lng: house.lng }))
+          : [];
+        const remoteItems = (geocodeResult && geocodeResult.status === 'fulfilled' && Array.isArray(geocodeResult.value.data))
+          ? geocodeResult.value.data
+          : [];
+
+        if (housesResult && housesResult.status === 'rejected') {
+          console.warn('AddressSuggest: houses request failed:', housesResult.reason?.message || housesResult.reason);
+        }
+        if (geocodeResult && geocodeResult.status === 'rejected') {
+          console.warn('AddressSuggest: geocode request failed:', geocodeResult.reason?.message || geocodeResult.reason);
+        }
+
         const unique = new Map();
         [...localItems, ...remoteItems].forEach((item) => {
+          if (!item || !item.text) return;
           const key = String(item.text).toLocaleLowerCase();
           if (!unique.has(key)) unique.set(key, item);
         });
         this.items = Array.from(unique.values()).slice(0, 8);
         this.idx = -1;
         this.render();
-      } catch (_) { this.hide(); }
+      } catch (err) {
+        console.error('AddressSuggest error:', err);
+        this.hide();
+      }
     }, 300);
 
     this.input.addEventListener('input', () => {

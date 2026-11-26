@@ -16,6 +16,16 @@ $pageScript  = $pageScript ?? '';
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;800&family=JetBrains+Mono:wght@500;700&family=Unbounded:wght@500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="<?= BASE ?>/assets/css/app.css?v=<?= (int)filemtime(__DIR__ . '/../assets/css/app.css') ?>">
+
+<!-- === ДОБАВЛЕНО: общий объект window.APP для JS === -->
+<script>
+window.APP = {
+  base: <?= json_encode(BASE) ?>,
+  hasYandex: <?= (YANDEX_GEOCODER_KEY !== '') ? 'true' : 'false' ?>,
+  readOnly: <?= ($currentUser['role'] ?? '') === 'user' ? 'true' : 'false' ?>
+};
+</script>
+
 <script>window.YMAPS = { mapKey: '<?= e(YANDEX_MAPS_KEY) ?>', center: <?= json_encode(MAP_CENTER) ?>, bounds: <?= json_encode(MAP_BOUNDS) ?>, zoom: <?= (int)MAP_ZOOM ?> };</script>
 <?php if (YANDEX_MAPS_KEY !== ''): ?>
 <script src="https://api-maps.yandex.ru/2.1/?apikey=<?= e(YANDEX_MAPS_KEY) ?>&lang=ru_RU"></script>

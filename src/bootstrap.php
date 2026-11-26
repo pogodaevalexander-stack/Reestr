@@ -115,8 +115,8 @@ function verify_csrf_token($token): bool
 }
 
 define('BASE', app_base_url());
-define('YANDEX_MAPS_KEY', trim(strval(config()['yandex_maps_api_key'] ?? '')));
-define('YANDEX_GEOCODER_KEY', trim(strval(config()['yandex_geocoder_api_key'] ?? '')));
+define('YANDEX_MAPS_KEY', trim(strval(config()['yandex_maps_api_key'] ?? '76d84887-204c-4c2c-bc82-b0b1bbe77288')));
+define('YANDEX_GEOCODER_KEY', trim(strval(config()['yandex_geocoder_api_key'] ?? 'c3256984-03a4-4c60-b80d-e299efbce82d')));
 define('MAP_CENTER', config()['map_center']);
 define('MAP_BOUNDS', config()['map_bounds']);
 define('MAP_ZOOM', (int)config()['map_zoom']);
