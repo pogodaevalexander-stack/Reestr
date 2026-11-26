@@ -5,8 +5,8 @@
 
 const TYPE = {
   shutdown: { label: 'Отключение', color: '#d71920' },
-  damage: { label: 'Повреждение', color: '#111111' },
-  improvement: { label: 'Благоустройство', color: '#666666' },
+  damage: { label: 'Повреждение', color: '#ea580c' },
+  improvement: { label: 'Благоустройство', color: '#b45309' },
 };
 const CALL_COLOR = '#d71920';
 
@@ -61,7 +61,7 @@ function renderMonthlyChart(data) {
   $('#monthly-chart-title').textContent = isAppeals ? 'Обращения за месяц' : 'Отключения за месяц';
   $('#monthly-chart-total').textContent = `${month} · всего: ${seriesTotal}`;
   $('#monthly-chart-link').href = (window.APP?.base || '') + (isAppeals ? '/appeals.php' : '/outages.php');
-  drawMonthlyChart($('#monthly-chart'), data.days, metric, isAppeals ? '#0e9d8c' : '#e2483d', max);
+  drawMonthlyChart($('#monthly-chart'), data.days, metric, isAppeals ? '#b45309' : '#d71920', max);
 }
 
 function drawMonthlyChart(canvas, rows, key, color, max) {
@@ -82,9 +82,9 @@ function drawMonthlyChart(canvas, rows, key, color, max) {
   for (let tick = 0; tick <= 4; tick++) {
     const value = Math.ceil(max * (4 - tick) / 4);
     const y = pad.top + plotHeight * tick / 4;
-    context.strokeStyle = '#e8edf3';
+    context.strokeStyle = '#ececef';
     context.beginPath(); context.moveTo(pad.left, y); context.lineTo(width - pad.right, y); context.stroke();
-    context.fillStyle = '#718096'; context.fillText(String(value), pad.left - 7, y);
+    context.fillStyle = '#6d6d76'; context.fillText(String(value), pad.left - 7, y);
   }
   const step = plotWidth / Math.max(1, rows.length - 1);
   context.beginPath();
@@ -97,7 +97,7 @@ function drawMonthlyChart(canvas, rows, key, color, max) {
   rows.forEach((row, index) => {
     if (index % 5 !== 0 && index !== rows.length - 1) return;
     const x = pad.left + index * step;
-    context.fillStyle = '#718096'; context.textAlign = 'center'; context.textBaseline = 'top';
+    context.fillStyle = '#6d6d76'; context.textAlign = 'center'; context.textBaseline = 'top';
     context.fillText(String(row.day), x, height - pad.bottom + 8);
   });
 }
