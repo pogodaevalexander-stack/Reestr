@@ -5,6 +5,7 @@ $isImprovementPage = basename((string)($_SERVER['SCRIPT_NAME'] ?? '')) === 'impr
 $page       = $isImprovementPage ? 'improvements' : 'outages';
 $pageTitle  = $isImprovementPage ? 'Благоустройство' : 'Отключения';
 $pageScript = 'outages.js';
+$newUrl     = BASE . '/outage_form.php' . ($isImprovementPage ? '?type=improvement' : '');
 require __DIR__ . '/partials/head.php';
 ?>
 
@@ -17,7 +18,7 @@ require __DIR__ . '/partials/head.php';
       </div>
       <div class="header-actions">
         <?php if (!$isImprovementPage): ?><a class="btn ghost excel-export" href="<?= BASE ?>/export.php?type=outages" download="outages.xlsx" data-filename="outages.xlsx">Экспорт в Excel</a><?php endif; ?>
-        <?php if (($currentUser['role'] ?? '') !== 'user'): ?><a class="btn primary" href="<?= BASE ?>/<?= $isImprovementPage ? 'improvement_form.php' : 'outage_form.php' ?>"><?= $isImprovementPage ? 'Новое благоустройство' : 'Новое отключение' ?></a><?php endif; ?>
+        <?php if (($currentUser['role'] ?? '') !== 'user'): ?><a class="btn primary" href="<?= e($newUrl) ?>"><?= $isImprovementPage ? 'Новое благоустройство' : 'Новое отключение' ?></a><?php endif; ?>
       </div>
     </div>
     <div class="toolbar">

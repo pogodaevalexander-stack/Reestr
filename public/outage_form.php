@@ -1,10 +1,23 @@
 <?php
 require_once __DIR__ . '/../src/bootstrap.php';
 require_auth();
+
+// Роль «Пользователь» — только просмотр, формы ей недоступны.
+if ((auth_user()['role'] ?? '') === 'user') {
+    header('Location: ' . BASE . '/outages.php');
+    exit;
+}
+
 $editingId = max(0, (int)($_GET['id'] ?? 0));
 $isImprovementPage = (string)($_GET['type'] ?? '') === 'improvement';
 $page       = $isImprovementPage ? 'improvements' : 'outages';
-$pageTitle  = $isImprovementPage ? ($editingId > 0 ? 'Изменить благоустройство' : 'Новое благоустройство') : ($editingId > 0 ? 'Изменить отключение' : 'Новое отключение');
+$pageTitle  = $isImprovementPage
+    ? ($editingId > 0 ? 'Изменить благоустройство' : 'Новое благоустройство')
+    : ($editingId > 0 ? 'Изменить отключение' : 'Новое отключение');
+$formTitle  = $isImprovementPage
+    ? ($editingId > 0 ? 'Изменить благоустройство' : 'Регистрация благоустройства')
+    : ($editingId > 0 ? 'Изменить отключение' : 'Регистрация отключения');
+$listUrl    = BASE . '/' . ($isImprovementPage ? 'improvements.php' : 'outages.php');
 $pageScript = 'outage_form.js';
 require __DIR__ . '/partials/head.php';
 ?>
@@ -12,10 +25,10 @@ require __DIR__ . '/partials/head.php';
 <div class="page-grid">
   <section class="panel span-12 record-form-panel">
     <div class="panel-head slim">
-      <h2 class="panel-title" id="of-form-title"><?= $editingId > 0 ? 'Изменить отключение' : 'Регистрация отключения' ?></h2>
-      <a class="btn ghost sm" href="<?= BASE ?>/<?= $isImprovementPage ? 'improvements.php' : 'outages.php' ?>">К списку</a>
+      <h2 class="panel-title" id="of-form-title"><?= e($formTitle) ?></h2>
+      <a class="btn ghost sm" href="<?= e($listUrl) ?>">К списку</a>
     </div>
-    <form class="form record-form" id="outage-form" novalidate>
+    <form class="form record-form" id="outage-form" novalidate data-list-url="<?= e($listUrl) ?>">
       <label class="field">
         <span class="field-label">Адрес дома</span>
         <div class="sg-wrap" id="of-address-wrap">
@@ -25,7 +38,11 @@ require __DIR__ . '/partials/head.php';
         </div>
       </label>
       <label class="field"><span class="field-label">Категория</span>
-        <select id="of-type" required <?= $isImprovementPage ? 'disabled' : '' ?>><option value="shutdown">Отключение</option><option value="damage">Повреждение</option><option value="improvement" <?= $isImprovementPage ? 'selected' : '' ?>>Благоустройство</option></select>
+        <select id="of-type" required <?= $isImprovementPage ? 'disabled' : '' ?>>
+          <option value="shutdown">Отключение</option>
+          <option value="damage">Повреждение</option>
+          <option value="improvement" <?= $isImprovementPage ? 'selected' : '' ?>>Благоустройство</option>
+        </select>
       </label>
       <label class="field" id="of-detail-field"><span class="field-label">Вид</span>
         <select id="of-detail-type" required>
@@ -42,10 +59,13 @@ require __DIR__ . '/partials/head.php';
         <span class="field-label">Количество соц. объектов</span>
         <input type="number" id="of-social-count" min="0" step="1" required>
       </label>
-      <label class="field" id="of-other-field"><span class="field-label">Количество прочего</span><input type="number" id="of-other-count" min="0" step="1" required></label>
+      <label class="field" id="of-other-field">
+        <span class="field-label">Количество прочего</span>
+        <input type="number" id="of-other-count" min="0" step="1" required>
+      </label>
       <label class="field">
         <span class="field-label">Причина</span>
-        <input type="text" id="of-reason" placeholder="Причина отключения">
+        <input type="text" id="of-reason" placeholder="Причина">
       </label>
       <label class="field" id="of-planned-start-field">
         <span class="field-label">Планируемое время отключения</span>
@@ -53,17 +73,17 @@ require __DIR__ . '/partials/head.php';
       </label>
       <label class="field" id="of-actual-start-field">
         <span class="field-label">Фактическое время отключения</span>
-        <input type="datetime-local" id="of-actual-start" value="<?= e(date('Y-m-d\\TH:i')) ?>" required>
+        <input type="datetime-local" id="of-actual-start" value="<?= $editingId > 0 ? '' : e(date('Y-m-d\TH:i')) ?>" required>
       </label>
       <label class="field" id="of-planned-end-field">
         <span class="field-label">Плановое восстановление</span>
         <input type="datetime-local" id="of-planned-end">
       </label>
       <div class="field-actions">
-        <button type="submit" class="btn primary" id="of-save">Зарегистрировать</button>
+        <button type="submit" class="btn primary" id="of-save"><?= $editingId > 0 ? 'Сохранить' : 'Зарегистрировать' ?></button>
         <button type="button" class="btn ghost" id="of-toggle" hidden></button>
-        <?php if (($currentUser['role'] ?? '') === 'admin'): ?><button type="button" class="btn danger" id="of-delete" hidden>Удалить отключение</button><?php endif; ?>
-        <a class="btn ghost" href="<?= BASE ?>/<?= $isImprovementPage ? 'improvements.php' : 'outages.php' ?>">Отмена</a>
+        <?php if ((auth_user()['role'] ?? '') === 'admin'): ?><button type="button" class="btn danger" id="of-delete" hidden>Удалить запись</button><?php endif; ?>
+        <a class="btn ghost" href="<?= e($listUrl) ?>">Отмена</a>
       </div>
       <input type="hidden" id="of-id" value="<?= $editingId ?>">
     </form>
