@@ -164,11 +164,38 @@ try {
         }
 
         case 'map': {
-            $data = [
-                'outages' => (new OutageRepository())->active(),
-                'appeals' => (new AppealRepository())->list(),
-            ];
-            json_response(['ok' => true, 'data' => $data]);
+            $pdo = Database::pdo();
+
+            // Отключения + благоустройства: все активные, с координатами.
+            $outages = $pdo->query("
+                SELECT o.id, o.type, o.reason, h.address, h.lat, h.lng
+                FROM outages o
+                JOIN houses h ON h.id = o.house_id
+                WHERE o.is_active = 1
+                AND h.lat IS NOT NULL AND h.lng IS NOT NULL
+            ")->fetchAll();
+
+            // «Горячие» адреса обращений: > 3 звонков с одного адреса.
+            $hotAppeals = $pdo->query("
+                SELECT
+                    a.address,
+                    a.lat,
+                    a.lng,
+                    COUNT(*) AS calls,
+                    MAX(a.call_at) AS last_call_at,
+                    SUBSTRING_INDEX(GROUP_CONCAT(a.fio   ORDER BY a.call_at DESC SEPARATOR '||'), '||', 1) AS last_fio,
+                    SUBSTRING_INDEX(GROUP_CONCAT(a.phone ORDER BY a.call_at DESC SEPARATOR '||'), '||', 1) AS last_phone
+                FROM appeals a
+                WHERE a.lat IS NOT NULL AND a.lng IS NOT NULL
+                GROUP BY a.address, a.lat, a.lng
+                HAVING COUNT(*) > 3
+                ORDER BY calls DESC
+            ")->fetchAll();
+
+            json_response(['ok' => true, 'data' => [
+                'outages'     => $outages,
+                'hot_appeals' => $hotAppeals,
+            ]]);
         }
         break;
 

@@ -104,19 +104,19 @@ function drawMonthlyChart(canvas, rows, key, color, max) {
 
 /* ---------- карта ---------- */
 async function initMap() {
-  if (!window.YMAPS || !window.YMAPS.mapKey) { showFallback(); return; }
-  if (typeof ymaps === 'undefined') {
-    showFallback('Скрипт Яндекс Карт не загрузился. Проверьте интернет-соединение и корректность ключа API.');
-    return;
-  }
+ if (typeof ymaps === 'undefined') {
+  showFallback('Скрипт Яндекс Карт не загрузился. Проверьте интернет-соединение и корректность ключа API.');
+  return;
+}
+await new Promise((resolve) => ymaps.ready(resolve));
 
-  let data;
-  try {
-    data = (await api({ action: 'map' })).data;
-  } catch (e) {
-    showFallback(e.message);
-    return;
-  }
+let data;
+try {
+  data = (await api({ action: 'map' })).data;
+} catch (e) {
+  showFallback(e.message);
+  return;
+}
 
   const map = new ymaps.Map('map',
     { center: window.YMAPS.center, zoom: window.YMAPS.zoom },
@@ -149,13 +149,20 @@ async function initMap() {
       + `<span class="mbal-id mono">#${o.id}${o.reason ? ' · ' + esc(o.reason) : ''}</span></div>`));
   });
 
-  data.appeals.forEach((a) => {
-    if (a.lat == null || a.lng == null) { noCoords++; return; }
-    if (!isInOmsk(Number(a.lat), Number(a.lng))) { outsideOmsk++; return; }
-    cCall.add(mk(a, CALL_COLOR,
-      `<div class="mbal"><b>${esc(a.address)}</b>`
-      + `<span class="mbal-tag" style="--c:${CALL_COLOR}">звонок в поддержку</span>`
-      + `<span class="mbal-id mono">Обращение № ${a.id} · ${esc(a.fio)} · ${esc(a.phone)}</span></div>`));
+  // --- Обращения: только «горячие» адреса (> 3 звонков) ---
+  (data.hot_appeals || []).forEach((g) => {
+    if (g.lat == null || g.lng == null) { noCoords++; return; }
+    if (!isInOmsk(Number(g.lat), Number(g.lng))) { outsideOmsk++; return; }
+
+    cCall.add(mk(
+      { lat: g.lat, lng: g.lng, address: g.address },
+      CALL_COLOR,
+      `<div class="mbal">`
+      + `<b>${esc(g.address)}</b>`
+      + `<span class="mbal-tag" style="--c:${CALL_COLOR}">звонков: ${g.calls} · последний ${fmtDT(g.last_call_at)}</span>`
+      + (g.last_fio ? `<span class="mbal-id mono">${esc(g.last_fio)}${g.last_phone ? ' · ' + esc(g.last_phone) : ''}</span>` : '')
+      + `</div>`
+    ));
   });
 
   map.geoObjects.add(cShutdown);
