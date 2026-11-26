@@ -49,7 +49,7 @@ async function loadOutage(editingId) {
 function updateDetailVisibility() {
   const type = $('#of-type').value;
   const typeSelect = $('#of-type');
-  const color = type === 'shutdown' ? '#d71920' : (type === 'damage' ? '#111111' : '#6b7280');
+  const color = type === 'shutdown' ? '#d71920' : (type === 'damage' ? '#ea580c' : '#b45309');
   typeSelect.style.borderColor = color;
   const isImprovement = type === 'improvement';
   $('#of-detail-field').hidden = isImprovement;
